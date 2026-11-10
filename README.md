@@ -435,3 +435,25 @@ r:2                   # 休止
 
 维护者：[etyui508](https://github.com/etyui508) ·
 问题反馈：[GitHub Issues](https://github.com/etyui508/fan-studio/issues)
+
+### 公开站点
+
+| 地址 | 用途 | 实现 |
+|---|---|---|
+| <https://fanstudio.bony-doorframe-shortly.top> | 主官网 | `site/` 静态页面，由 `server/fan_studio_web.py` 提供 |
+| <https://fan-api.bony-doorframe-shortly.top> | 公共 API | `/v1/health`、`/v1/latest`、`/v1/motors`、`/v1/scores`、`/v1/links` |
+| <https://fan-download.bony-doorframe-shortly.top> | 下载入口 | `/` 跳转最新 Release，`/win` 跳转最新 Windows ZIP |
+
+服务通过现有 Cloudflare Tunnel 暴露到本机端口 `8180` / `8181` / `8182`。
+systemd 单元样例位于 [`deploy/systemd/`](deploy/systemd/)。
+
+GitHub Release：<https://github.com/etyui508/fan-studio/releases>
+
+API 示例：
+
+```text
+GET https://fan-api.bony-doorframe-shortly.top/v1/health
+GET https://fan-api.bony-doorframe-shortly.top/v1/latest
+GET https://fan-api.bony-doorframe-shortly.top/v1/motors
+GET https://fan-api.bony-doorframe-shortly.top/v1/scores
+```

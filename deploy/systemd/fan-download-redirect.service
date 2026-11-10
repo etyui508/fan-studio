@@ -1,0 +1,14 @@
+[Unit]
+Description=fan_studio GitHub release redirect (127.0.0.1:8182)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/mnt/d/666/fan-music
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 server/fan_studio_web.py --role download --port 8182
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
