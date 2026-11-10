@@ -146,5 +146,135 @@ fan_studio 默认在本机运行，不包含账号系统、云端同步、遥测
 隐私政策发生重要变化时会更新版本号并在软件内展示。若你对本地数据处理有疑问，请通过 https://github.com/etyui508/fan-studio/issues 联系维护者，并检查程序目录、临时目录和 APPDATA\fan_studio 中的实际文件。
 
 政策版本：" + Version + @"，生效日期：" + EffectiveDate + @"。";
+
+        public const string GuideEn =
+@"fan_studio User Guide
+
+1. Start and save
+Run fan_studio.exe. Use Open .fscore to load a project and Save to write it back. The ? button reopens this guide, the terms, and the privacy policy.
+
+2. Workspace
+The motor library is on the left. Search by model, family, or role, drag a card into the piano roll, or double-click a card to add a voice at the playhead.
+
+In the piano roll, double-click empty space to create a note. Drag a note to change time and pitch. Drag its right edge to change duration. Drag empty space to marquee-select.
+
+The inspector edits pitch, position, duration, and all physical motor parameters. The bottom panel shows concurrent voices and the 8-motor reference line.
+
+3. Colors and pitch
+A motor keeps the same color in the library, range overlay, and notes. The text-based pitch ruler labels C rows when zoomed out and more rows when zoomed in. Labels inside the selected voice range use the motor color.
+
+Hover a pitch row to see its frequency and the RPM required by the current voice. Click a pitch name on the left to audition it. Notes outside the range only show a warning.
+
+4. View controls
+Mouse wheel: vertical scroll.
+Shift+wheel: horizontal scroll.
+Ctrl+wheel: zoom time and pitch rows.
+Fit content: fit the project's time and pitch ranges.
+
+5. Shortcuts
+Space: play / stop
+Ctrl+S: save; Ctrl+Shift+S: save as
+Ctrl+O: open; Ctrl+N: new project
+Ctrl+I: import MIDI; Ctrl+F: search motor library
+F1: guide, licenses, and shortcuts
+F5: render and play
+Esc: stop playback; clear selection when stopped
+Ctrl+Z / Ctrl+Y: undo / redo
+Ctrl+A: select all notes; Ctrl+D: duplicate
+Delete: delete selection
+Arrow keys: nudge pitch or time
+Shift+Left/Right: change duration
+Ctrl+Up/Down: transpose one octave
+Home / End: move playhead to start / end
+Ctrl+0: fit content
+Ctrl+1…9: select voice 1…9
+
+Text fields keep their normal Space, arrow, selection, and undo behavior while editing.
+
+6. Physical limits
+Red outlines mean a note is outside the motor range or shorter than its 3.5τ settling time.
+Speed, duty, range, and settling values are simulation/editing parameters, not motor ratings or safe limits. Real hardware can be damaged or cause injury through overspeed, runaway, bearing or blade failure.
+
+7. MIDI import
+Choose Import MIDI, then set voice count, duration, and project BPM. The local Python arranger replaces the current project; Ctrl+Z restores it.
+
+8. Files
+.fscore projects are plain text. WAV previews go to the system temporary directory. Logs stay in the program directory and are never uploaded.
+
+Version " + Version + @", effective " + EffectiveDate;
+
+        public const string TermsEn =
+@"fan_studio Terms of Use
+Version " + Version + @" · Effective " + EffectiveDate + @"
+
+1. Acceptance and scope
+These terms apply to fan_studio. On first launch, clicking Agree and Continue confirms that you have read and accept these terms and the Privacy Policy. If you do not agree, choose Exit and stop using the software.
+
+2. Purpose
+The software edits .fscore projects, simulates multi-motor acoustics, previews sound, imports MIDI, and renders audio. No specific motor or hardware is guaranteed to reproduce the simulation.
+
+3. User responsibility
+You must have permission to use every MIDI file, score, recording, motor parameter, and other input. Do not use the software for unlawful content. If you distribute an audio rendering of a copyrighted song, you remain responsible for obtaining the required rights.
+
+4. Hardware and safety
+Real motors, fans, power supplies, drivers, and motherboards create noise, heat, mechanical, and electrical risks. You are responsible for power limits, insulation, current limiting, mounting, enclosure, and safe testing.
+
+Speed, duty cycle, pitch range, and 3.5τ settling values in the software are simulation/editing parameters, not motor ratings or safe limits. Real hardware may be damaged or cause injury through overspeed, runaway, bearing or blade failure, overheating, or electrical faults. Never use software values directly as hardware drive limits.
+
+5. Data and files
+You are responsible for project files. Confirm save paths and keep backups. The project does not promise recovery after accidental deletion, disk failure, power loss, or third-party tools.
+
+6. Intellectual property and license
+The source code is provided under the MIT License. See LICENSE in the project root. Third-party components remain under their own licenses; see THIRD_PARTY_NOTICES.md.
+User scores, MIDI inputs, and user-generated audio remain the property of their respective owners.
+
+7. Disclaimer
+The software is provided as is. To the extent permitted by law, the maintainer is not liable for equipment damage, data loss, business interruption, personal injury, or indirect loss. You may modify and verify the source under the MIT License, but you are responsible for modified behavior.
+Nothing in this section excludes liability where exclusion is prohibited. Liability for intentional misconduct or gross negligence causing personal injury is not excluded.
+
+8. Governing law and contact
+These terms are governed by the laws of the mainland People's Republic of China. Disputes should first be addressed through good-faith discussion and then through a court with jurisdiction.
+Project: https://github.com/etyui508/fan-studio
+Contact: https://github.com/etyui508/fan-studio/issues
+Maintainer: etyui508
+
+9. Updates
+Material changes update the version. The software may ask you to accept a new version.
+
+Version " + Version + @", effective " + EffectiveDate + @".";
+
+        public const string PrivacyEn =
+@"fan_studio Privacy Policy
+Version " + Version + @" · Effective " + EffectiveDate + @"
+
+1. Local-first operation
+fan_studio runs locally. There is no account system, cloud sync, telemetry, advertising SDK, or usage analytics. The software does not upload projects, MIDI, audio, device information, or activity logs.
+
+2. Data read
+The software reads files only when you choose Open .fscore or Import MIDI, or when a path is passed on the command line.
+
+3. Data written
+Save writes the .fscore path you choose.
+Preview and render write WAV files to the system temporary directory.
+Debug, crash, and test logs are written to the program directory.
+The accepted legal version is stored under the current user's APPDATA\fan_studio directory.
+This version has no autosave or crash recovery. If those features are added, this policy will state their file locations.
+
+4. External process
+MIDI import starts local Python with `python -m fan_music import-midi`. File paths and settings are passed to that local process; files are not uploaded.
+
+5. Network
+The desktop editor does not initiate network requests. Third-party command backends, cloud-synced folders, and operating-system services follow their own policies.
+
+6. Retention and deletion
+You control project files. Temporary WAV files, logs, and the acceptance record can be deleted directly. Delete the record under APPDATA\fan_studio to show the agreement again.
+
+7. Sensitive data
+The software does not request names, phone numbers, precise location, biometrics, or payment data. Avoid writing unnecessary sensitive information into projects or logs.
+
+8. Contact and changes
+Material changes update the version and are shown in the app. For privacy questions, open an issue at https://github.com/etyui508/fan-studio/issues.
+
+Version " + Version + @", effective " + EffectiveDate + @".";
     }
 }

@@ -65,7 +65,7 @@ namespace FanStudio
 
         public string ModelText
         {
-            get { return Motor == null ? "未指定" : Motor.Model; }
+            get { return Motor == null ? I18n.L("未指定", "Unassigned") : I18n.MotorModel(Motor); }
         }
 
         public EditorNote NoteAt(double beat)

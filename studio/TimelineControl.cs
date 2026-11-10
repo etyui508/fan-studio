@@ -388,7 +388,8 @@ namespace FanStudio
             }
             if (_doc == null || _doc.Voices.Count == 0)
             {
-                string text = "把左侧电机拖进这里，或双击创建声部";
+                string text = I18n.L("把左侧电机拖进这里，或双击创建声部",
+                    "Drag a motor here, or double-click to create a voice");
                 Size s = TextRenderer.MeasureText(text, StudioTheme.Ui);
                 TextRenderer.DrawText(g, text, StudioTheme.Ui,
                     new Point(content.Left + (content.Width - s.Width) / 2,
@@ -516,7 +517,8 @@ namespace FanStudio
                 g.DrawLine(pen, content.Left, yTop, content.Right, yTop);
                 g.DrawLine(pen, content.Left, yBottom - 1, content.Right, yBottom - 1);
             }
-            string text = _voice.Label + " 可唱 " + ScoreParser.MidiToName((int)Math.Round(_voice.LoMidi)) +
+            string text = _voice.Label + I18n.L(" 可唱 ", " range ") +
+                ScoreParser.MidiToName((int)Math.Round(_voice.LoMidi)) +
                 "–" + ScoreParser.MidiToName((int)Math.Round(_voice.HiMidi));
             Size s = TextRenderer.MeasureText(text, StudioTheme.UiSmall);
             if (content.Width > s.Width + 24 && yTop + 22 < content.Bottom)
@@ -587,7 +589,8 @@ namespace FanStudio
             if (voice != null && voice.Motor != null && voice.Motor.Blades > 0)
             {
                 double rpm = hz * 60.0 / (voice.Motor.Blades * Math.Max(1.0, voice.Motor.Harmonic));
-                text += " · " + voice.Label + " 需 " + rpm.ToString("0", CultureInfo.InvariantCulture) + " rpm";
+                text += " · " + voice.Label + I18n.L(" 需 ", " needs ") +
+                    rpm.ToString("0", CultureInfo.InvariantCulture) + " rpm";
             }
             if (_hoverNote != null)
                 text = _hoverVoice.Label + "  " + ScoreParser.MidiToName(_hoverNote.Midi) + " · " +
@@ -825,8 +828,9 @@ namespace FanStudio
                     FinishEdit(before);
                     NotifySelection();
                     if (StatusRequested != null)
-                        StatusRequested(this, new StatusEventArgs("已创建音符 " +
-                            ScoreParser.MidiToName(n.Midi) + " · Ctrl+D 复制 · Delete 删除"));
+                        StatusRequested(this, new StatusEventArgs(I18n.L("已创建音符 ", "Created note ") +
+                            ScoreParser.MidiToName(n.Midi) +
+                            I18n.L(" · Ctrl+D 复制 · Delete 删除", " · Ctrl+D duplicate · Delete remove")));
                 }
             }
             base.OnMouseDoubleClick(e);
@@ -1046,13 +1050,13 @@ namespace FanStudio
             timeline.PlayheadMoved += delegate { Invalidate(); };
             timeline.SelectionChanged += delegate { Invalidate(); };
             _fit = new StudioButton();
-            _fit.Text = "适应内容";
+            _fit.Text = I18n.UI("适应内容");
             _fit.Compact = true;
             _fit.Bounds = new Rectangle(Width - 82, 5, 72, 24);
             _fit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             _fit.Click += delegate { _timeline.Fit(); };
             var tips = new ToolTip();
-            tips.SetToolTip(_fit, "Ctrl+0：适应项目内容");
+            tips.SetToolTip(_fit, I18n.L("Ctrl+0：适应项目内容", "Ctrl+0: fit project content"));
             Controls.Add(_fit);
         }
 
@@ -1070,7 +1074,7 @@ namespace FanStudio
             g.Clear(StudioTheme.Panel);
             using (var pen = new Pen(StudioTheme.Border))
                 g.DrawLine(pen, 0, 0, Width, 0);
-            TextRenderer.DrawText(g, "同时发声数", StudioTheme.UiSmall,
+            TextRenderer.DrawText(g, I18n.UI("同时发声数"), StudioTheme.UiSmall,
                 new Rectangle(6, 7, Math.Max(90, _timeline.TimelineLeft + 34), 20), StudioTheme.Muted,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
             int left = _timeline.TimelineLeft + 4;
@@ -1099,7 +1103,7 @@ namespace FanStudio
                 pen.DashStyle = DashStyle.Dash;
                 g.DrawLine(pen, left, thresholdY, Width - 8, thresholdY);
             }
-            TextRenderer.DrawText(g, "8 台", StudioTheme.UiSmall, new Point(left + 2, top),
+            TextRenderer.DrawText(g, I18n.L("8 台", "8 max"), StudioTheme.UiSmall, new Point(left + 2, top),
                 StudioTheme.Danger);
             for (int i = 0; i < count; i++)
             {

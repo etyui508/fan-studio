@@ -16,10 +16,12 @@ static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+        AppSettings.Load();
         Application.ThreadException += delegate(object s, System.Threading.ThreadExceptionEventArgs e)
         {
             LogCrash(e.Exception);
-            MessageBox.Show("程序遇到一个错误，详情已写入 crash.log：\n\n" + e.Exception.Message,
+            MessageBox.Show(I18n.L("程序遇到一个错误，详情已写入 crash.log：\n\n",
+                "The application encountered an error. Details were written to crash.log:\n\n") + e.Exception.Message,
                 "fan_studio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         };
         AppDomain.CurrentDomain.UnhandledException += delegate(object s, UnhandledExceptionEventArgs e)
@@ -39,7 +41,14 @@ static class Program
         }
         if (args.Length > 0 && args[0] == "--show-legal")
         {
-            using (var legal = new LegalDialog(false)) legal.ShowDialog();
+            while (true)
+            {
+                using (var legal = new LegalDialog(false))
+                {
+                    DialogResult result = legal.ShowDialog();
+                    if (result != DialogResult.Retry) break;
+                }
+            }
             return;
         }
         if (args.Length > 0 && args[0] == "--legal-snapshot")
@@ -61,9 +70,15 @@ static class Program
             (args[0] == "--uitest" || args[0] == "--snapshot");
         if (!automatedLaunch && !HasAcceptedLegal())
         {
-            using (var legal = new LegalDialog(true))
+            while (true)
             {
-                if (legal.ShowDialog() != DialogResult.OK) return;
+                using (var legal = new LegalDialog(true))
+                {
+                    DialogResult result = legal.ShowDialog();
+                    if (result == DialogResult.Retry) continue;
+                    if (result != DialogResult.OK) return;
+                    break;
+                }
             }
             SaveLegalAcceptance();
         }
@@ -116,7 +131,7 @@ static class Program
         catch (Exception ex)
         {
             LogCrash(ex);
-            MessageBox.Show("启动失败：\n\n" + ex, "fan_studio",
+            MessageBox.Show(I18n.L("启动失败：\n\n", "Startup failed:\n\n") + ex, "fan_studio",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }

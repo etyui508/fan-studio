@@ -1,144 +1,141 @@
-# fan-music — 用电脑风扇放音乐
+**English** | [简体中文](README.zh.md)
 
-**能做,而且已经能听。** 但先说实话:风扇不是扬声器,它的"音高"来自叶片扫过空气的频率,
-所以音域窄、起音慢、还自带一身风噪。真正好听的玩法不是让它唱流行歌,而是让它唱**慢速低音旋律**。
+# fan_studio — turn fans and motors into instruments
 
-这个仓库里有完整的工具链:乐谱 → 转速映射 → 声学仿真渲染(先听) → Arduino 固件/主板后端(真跑)。
+[![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-24292f)](#download)
+[![License: MIT](https://img.shields.io/badge/license-MIT-f2a33a)](LICENSE)
+
+fan_studio is an open-source desktop editor for making music with cooling fans,
+brushless motors, steppers, servos, pumps, and other physical devices. It maps
+pitch to the frequency at which a motor repeats a physical event, then computes
+the RPM and duty cycle needed to produce that note.
+
+- Official site: <https://fanstudio.bony-doorframe-shortly.top>
+- Chinese site: <https://fanstudio.bony-doorframe-shortly.top/zh/>
+- Public API: <https://fan-api.bony-doorframe-shortly.top/v1/health>
+- Downloads: <https://fan-download.bony-doorframe-shortly.top/win>
+- Releases: <https://github.com/etyui508/fan-studio/releases>
+- Issues: <https://github.com/etyui508/fan-studio/issues>
+
+## Download
+
+The Windows package contains the editor, sample scores, the motor library,
+offline documentation, and the local Python arranger used by MIDI import.
+
+```text
+https://fan-download.bony-doorframe-shortly.top/win
+```
+
+Extract the ZIP and run `fan_studio.exe`. Python is only required for MIDI
+arrangement and command-line rendering.
+
+## Why fans?
+
+A fan does not work like a speaker. Its pitch comes from repeating pressure
+pulses as blades pass through the air:
+
+```text
+blade passing frequency = RPM / 60 × blade count
+RPM = target frequency × 60 / blade count
+```
+
+For example, a 7-blade fan needs `440 × 60 / 7 = 3771 RPM` to produce an
+audible A4 fundamental. Motors with many poles, commutator segments, rotor
+slots, or step pulses can produce higher pitch through those events instead.
+
+The project uses the same event-frequency model across 40 motor presets in 16
+physical families. It also models inertia and schedules acceleration so a note
+finishes changing speed at its start time rather than arriving late.
+
+## Desktop editor
+
+The WinForms editor includes:
+
+- A searchable motor library with stable per-motor colors
+- A zoomable piano roll with drag, resize, marquee selection, and undo
+- A text-based pitch ruler with frequency and required-RPM hover readouts
+- Click-to-audition pitch labels and range warnings
+- A physical inspector for blades, harmonics, RPM limits, inertia, noise, pan,
+  gain, and placement delay
+- Real-time concurrency and timing-risk diagnostics
+- MIDI import through the existing Python arranger
+- English UI by default, with a Chinese option stored locally
+- First-run Terms of Use and Privacy Policy confirmation
+
+### Build
 
 ```powershell
-python -m fan_music render scores/ode_to_joy.fscore    # 立刻听(仿真)
-python -m fan_music show   scores/ode_to_joy.fscore    # 只看转速表
-python -m fan_music play   scores/ode_to_joy.fscore --backend serial --port COM3   # 真驱动
-
-# 多电机(4 台风扇合奏)
-python -m fan_music render scores/bad_apple.fscore     # 四电机改编版
-
-# 从 MIDI 自动改编成 N 台电机的谱子
-python -m fan_music midi "某个.mid"                     # 先看文件里有什么
-python -m fan_music import-midi "某个.mid" --voices 4 --duration 45 --render
+cd studio
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+.\fan_studio.exe
 ```
 
----
-
-## 1. 原理:风扇为什么能唱歌
-
-风扇转起来,每片叶子扫过一次就是一次气压脉冲:
-
-```
-f_bp = RPM / 60 × 叶片数          (blade passing frequency)
-RPM  = f_bp × 60 / 叶片数          (反解: 想唱某个音需要多少转速)
-```
-
-例:7 叶风扇要唱 A4 (440 Hz),基频就得 440 Hz → 需要 `440×60/7 = 3771 RPM`。
-
-**问题来了**:一般 120mm 风扇 400–2000 RPM,基频只能覆盖 **46.7–233 Hz**,也就是 F#1–A#3 —
-一个很低的男低音区间。想要更高的音,只能靠**谐波**:让第 k 阶谐波落在目标音高上。
-
-| k | 7 叶 / 400–2000RPM 的可用音域 | 代价 |
-|---|---|---|
-| 1 | F#1 – A#3 | 无,但只能唱低音 |
-| 2 | F#2 – A#4 | 根音低一个八度(像加了低音踏板) |
-| 3 | D3 – E5 | 根音低十二度,和声变浑 |
-
-本项目两个示例谱都用 **k=2**,这样根音正好低八度,听感上是"旋律 + 低音铺底",反而更厚。
-
-实际用到的换算(7 叶,k=2):
-
-| 音 | 频率 | 叶片通过频率 | 目标转速 | 占空比 |
-|---|---|---|---|---|
-| A3 | 220.0 Hz | 110.0 Hz | 943 RPM | 48.5% |
-| C4 | 261.6 Hz | 130.8 Hz | 1121 RPM | 57.2% |
-| D4 | 293.7 Hz | 146.8 Hz | 1259 RPM | 63.9% |
-| E4 | 329.6 Hz | 164.8 Hz | 1413 RPM | 71.4% |
-| F4 | 349.2 Hz | 174.6 Hz | 1497 RPM | 75.5% |
-| G4 | 392.0 Hz | 196.0 Hz | 1680 RPM | 84.4% |
-| A4 | 440.0 Hz | 220.0 Hz | 1886 RPM | 94.4% |
-
-## 2. 三条落地路线
-
-| | 路线 | 需要什么 | 优点 | 代价 |
-|---|---|---|---|---|
-| **A** | 单片机 + 外置 4-pin 风扇 | Arduino/ESP32、12V 电源、风扇 | 安全、可控、随便玩 | 要接线 |
-| **B** | 斩波 12V 让线圈啸叫 | 同上 + MOSFET + 续流二极管 | 能出真音高、音域宽 | 实验性,风扇可能不转,有电气噪声 |
-| **C** | 直接用主板上的风扇 | nbfc / FanControl / LibreHardwareMonitor | 不用接线 | 给 CPU 散热的风扇,让它唱歌 = 让 CPU 挨热;EC 刷新率常只有 1Hz;风扇曲线会抢回控制权;笔记本 EC 基本锁死 |
-
-**建议 A**。C 我在 `--backend command` 里留了口子(见第 6 节),但别拿主力机的散热风扇玩。
-
-### 先给你的机器做体检
+### Checks
 
 ```powershell
-.\tools\fan_probe.ps1 -Heat 20
+.\fan_studio.exe --selftest
+.\fan_studio.exe --uitest
+.\fan_studio.exe --scorecheck
+.\fan_studio.exe --snapshot preview.png ..\scores\bad_apple_6motors_45s.fscore
 ```
 
-它会查一遍:机箱形态、是否管理员、**内存完整性(VBS/HVCI)开没开**、`Win32_Fan` 有没有转速字段、
-ACPI 热区是不是假值、有没有 OEM 的风扇控制类(GameZone 之类)、装了哪些风扇工具。
-`-Heat 20` 会烧 20 秒 CPU 让你听风扇换挡,同时验证温度读数真假。
+## Command-line tools
 
-判读:`读真实温度 / 读风扇转速 / 控风扇转速` 三项里只要有一项是 `X`,这条路就走不通。
-消费级笔记本(联想小新、IdeaPad 这类)通常是三项全 `X`,原因见下面这份实测记录。
+```powershell
+python -m fan_music render scores/ode_to_joy.fscore
+python -m fan_music show scores/ode_to_joy.fscore
+python -m fan_music play scores/bad_apple_6motors_45s.fscore --backend serial --port COM3
+python -m fan_music midi song.mid
+python -m fan_music import-midi song.mid --voices 4 --duration 45 --render
+```
 
-本机实测(Lenovo 小新 16 IAH8 / 83BG / i5-12450H):
+### Routes to real hardware
 
-| 项目 | 结果 | 原因 |
+| Route | Hardware | Notes |
 |---|---|---|
-| 内存完整性 | 开启 | WinRing0 系驱动被拉黑,所有风扇工具都过不去 |
-| Win32_Fan | 只有占位设备 | 固件没暴露 SMBIOS Type 29,没有转速字段 |
-| ACPI 热区 `_tz.tz00` | 恒为 27.9°C | dummy 区,满载 20 秒也纹丝不动 |
-| OEM 控制接口 | 只有 `LENOVO_SR_DATA` / `LENOVO_UTILITY_DATA` | IdeaPad 的 ImController 事件类,没有方法 |
-| 风扇 | 由 EC 独占 | 没有公开寄存器表,用户态碰不到 |
+| A | Arduino/ESP32 + external 4-pin fan | Recommended; isolated and controllable |
+| B | 12 V switching into a motor winding | Experimental; audible coil excitation |
+| C | Existing motherboard fan controller | Often locked down by firmware and unsafe for CPU cooling |
 
-**结论:笔记本上"用主板风扇放音乐"基本无解**,不是不够努力,是固件没开这个口。
-零成本能听到风扇换挡的办法是 `Fn+Q` 切散热模式(智能/性能/安静),那是个三档开关。
+Start with route A. Run `tools/fan_probe.ps1 -Heat 20` to check whether a
+machine exposes temperature, tachometer, or fan control interfaces.
 
+## The physics model
 
-## 3. 已经修好的两个物理问题
+The renderer follows a causal chain:
 
-这不是"发个 PWM 就完事"的项目,有两个坑必须解:
+1. Map pitch to a motor event frequency.
+2. Convert the event frequency to target RPM.
+3. Plan a bounded, inertia-aware speed transition.
+4. Generate harmonics and airflow noise from instantaneous RPM.
+5. Apply stereo placement, micro-delay, reverb, and normalization.
+6. Run a per-note FFT pitch check against the score.
 
-**坑 1:风扇是惯性负载。** 转速对占空比是一阶惯性环节,时间常数 τ 一般 0.1–0.6 秒。
-照谱子直接设目标转速,每个音都会**迟到**,短音符根本到不了位(我第一版实测偏差 +109 音分)。
+The preview is a simulation, not a recording. Real fans add bearing noise,
+resonance, blade geometry, and electrical behavior that no model can fully
+capture.
 
-**解法是饱和控制**:往高转就先把占空比给满,冲到目标转速再回到稳态值;往低转就给到不停转的最低值。
-一阶惯性 + 有界控制的时间最优解就是这类 bang-bang,比干等惯性逼近快一倍以上。
+## The .fscore format
 
-**坑 2:换速要占时间。** 既然换速耗时是解析可算的(`engine.transition_time`),
-就把换速**刚好安排在起拍那一瞬间结束** —— 被占用的只是上一个音的尾巴,听起来是自然的滑音。
+One voice represents one motor:
 
-效果:两个示例谱的"准点率"95–97%,FFT 实测最大音高偏差 **1.4 音分**(人耳听不出来)。
-
-## 4. 现在就能听(不用任何硬件)
-
-```
-out/ode_to_joy.wav    欢乐颂, 22.0s
-out/korobeiniki.wav   俄罗斯方块, 20.4s
-```
-
-**这是仿真,不是录音。** 渲染器建了个物理模型:饱和控制驱动的转速曲线 → 叶片通过频率的谐波列
-→ 随转速增长的气流噪声 → 一点房间混响。它告诉你"这个谱子在真风扇上大概长什么样",
-但真实风扇还会有轴承噪声、机箱共振、以及每台风扇不同的叶片形状 —— 那些不是模型能替的。
-
-`render` 每次都会做 FFT 自检,把每条音的实测频率和谱面比对,你可以直接看到准不准。
-
-## 4.5 多电机:一台风扇一个声部
-
-一台风扇一次只能唱一个音,所以和声必须靠多台电机。每个声部在 `.fscore` 里是独立的,
-各有自己的物理参数(叶片数、转速范围、惯性、摆位),因为物理上它们本来就是不同的电机。
-
-```
+```ini
 bpm = 120
 
-[voice melody]          ; 名字随意
-blades = 7              ; 叶片数
-harmonic = 2            ; 用第 2 阶谐波发音 -> 同样转速下听感高一个八度
+[voice lead]
+blades = 7
+harmonic = 2
 min_rpm = 900
 max_rpm = 3400
-glide = 0.08            ; 惯性时间常数, 小风扇小
-pan = -0.45             ; 摆位: -1 最左, +1 最右
-delay_ms = 3            ; 摆位延迟, 让它们听起来不在同一个点
+glide = 0.08
+start_duty = 0.18
+pan = -0.45
+delay_ms = 3
 gain = 1.0
 A4:1 C5:1 E5:2
 
 [voice bass]
+blades = 7
 harmonic = 1
 min_rpm = 450
 max_rpm = 1800
@@ -146,314 +143,63 @@ pan = 0.45
 A2:2 E3:2
 ```
 
-渲染时会按 pan 做等功率声像、按 delay_ms 做微延时,最后过一遍共用的房间混响 ——
-它们毕竟在同一个机箱里。
+Voice names can be arbitrary. The desktop editor also supports legacy
+single-motor files with no `[voice ...]` header.
 
-### 从 MIDI 自动改编
+## MIDI arranging
 
-真实谱子不能直接照搬:原曲每秒十几、二十个音,而一台风扇换速要 0.05~0.15 秒,
-一秒最多唱 3~4 个音;音域也差着 4 个八度。所以 `import-midi` 做了三件事:
+Ordinary MIDI usually has far more notes and pitch range than a motor ensemble
+can reproduce. `import-midi`:
 
-1. **分层抽取**:melody 取全体最高音, harmony 取中高层的最高音, alto 取中低层的最低音,
-   bass 取全体最低音。同一时刻有十几个音, 每台风扇只能唱一个, 这样四台不会撞车。
-2. **整体移八度**进入各自电机的可用音域(移八度不破坏和声)。
-3. **重新采样**:以 `--step` 为周期取一个音, 相邻同音合并成长音。默认按**每台电机自己的整定时间**
-   定(3.5×τ),所以 40mm 扇约 280ms、鼠笼异步电机要 1575ms。
-   本质上是把原曲当采样器来采, 得到连续的音高轮廓 —— 风扇天生连奏, 这样反而好听。
+1. Extracts melody, harmony, alto, and bass layers.
+2. Moves each layer by octaves into the selected motor's range.
+3. Resamples around each motor's settling time.
 
-```powershell
-python -m fan_music import-midi "song.mid" --voices 4 --duration 45 --render
-python -m fan_music import-midi "song.mid" --motors series,srm,cage --render
-```
+The result is a `.fscore` project that can be inspected and edited in the
+desktop app.
 
-编制规模**不设上限**:
+## Public API
 
-* `--voices N` 从编制顺序里取前 N 台,任意台数;
-* 超出可编曲型号数(32 种)时**循环复用**——现实中你确实可以买两台一模一样的风扇,
-  复用的型号在名字后面加 `-2` / `-3`;
-* `--motors a,b,c` 自己点菜,点几台就是几台(可以点名 1 台做单旋律)。
-
-不过 3~8 台最实用,而且这个上限是**物理给的**,不是代码给的:每台可用音域只有约 2 个八度,
-声部一多就会叠在同一片频谱里互相遮蔽。实测六台风扇时低频三个声部检出率从 97% 掉到 11%,
-再往上加只会更糊。所以 `--voices` 超过 8 时会打印提示,但不会拦你。
-
-
-`--step` 越小越忠实但风扇跟不上;`--start` 不填会自动跳过前奏。
-生成的 `.fscore` 是纯文本,想让某个音高一点直接改音名就行。
-
-## 4.6 电机型号库:一台电机就是一种乐器
-
-`python -m fan_music motors` 会打印全表。**库里有 40 个型号、16 个族系**,而且音色差异不是靠
-参数假装,是原理不同。
-
-### 关键认识:音高不是"转多快"
-
-音高 = **每秒钟重复了多少次某个周期事件**。不同电机这个事件不一样,公式却完全一样:
-
-| 族系 | 周期事件 | 音高公式 | 典型数字 |
-|---|---|---|---|
-| 轴流/离心风机 | 叶片扫过 | rpm/60 × 叶片数 | 7 叶 1500rpm = 175Hz |
-| 电刷直流 | 换向片切换 | rpm/60 × 换向片数 | 3 片 6000rpm = 300Hz |
-| 无刷直流 | 换相 | rpm/60 × **极对数** | 12N14P 10000rpm = 1167Hz |
-| 步进电机 | 步进脉冲 | rpm/60 × 每转步数 | NEMA17 300rpm = 1000Hz |
-| 偏心转子 | 偏心块转一圈 | rpm/60 | 振动马达 12000rpm = 200Hz |
-| 隔膜泵 | 单向阀开合 | rpm/60 × 行程 | 3000rpm = 50Hz |
-
-所以库里 `blades` 这一列的真正含义是"每转的周期事件数":风扇填叶片数,步进填每转步数,
-无刷填极对数,电刷填换向片数。**同一个引擎就能驱动全部族系。**
-
-### 选行列(完整表见 `motors` 命令)
-
-| 型号 | 事件/转 | 转速 | 基音区间 | 惯性 τ | timbre | 音色 |
-|---|---|---|---|---|---|---|
-| 40mm 高速小扇 | 7 | 3000–13000 | F4–F#6 | 50ms | 0.85 | 尖锐带谐波 |
-| 120mm 静音扇 | 7 | 500–1500 | A#1–F3 | 180ms | 1.35 | 圆润低沉 |
-| 140mm 大风量 | 9 | 450–1800 | C#2–C#4 | 220ms | 1.50 | 几乎正弦 |
-| 涡轮鼓风机 | 41 | 1200–4000 | G#5–F7 | 100ms | 0.90 | 口哨 |
-| 笔电薄叶涡轮 | 43 | 1500–5000 | C6–A7 | 60ms | 1.00 | 极细 |
-| 130 玩具电机 | 3 | 3000–18000 | D3–A5 | 40ms | 0.80 | 换向火花 |
-| 空心杯电机 | 5 | 8000–30000 | E5–D#7 | **15ms** | 0.85 | 响应最快 |
-| 穿越机 12N14P | 7 | 3000–30000 | F4–A7 | **12ms** | 0.85 | 电机啸叫 |
-| NEMA17 步进 | 200 | 30–600 | G2–B6 | 30ms | **0.55** | 咔哒,像软驱 |
-| 28BYJ-48 步进 | 4096 | 1–15 | C#2–C6 | 250ms | 0.50 | 齿轮撞击 |
-| 转子振动马达 | 1 | 8000–15000 | C3–B3 | 50ms | 1.80 | 嗡嗡,噪声主导 |
-| 隔膜气泵 | 1 | 3000–3600 | G1–B1 | 300ms | 0.60 | 50Hz 低频嗡 |
-
-另外 6 个**不能定音高或需要专用后端**:云台电机(0.6–35Hz 听不见)、SG90 位置舵机(有限位, 只能是齿轮嗒)、
-工业伺服 + 驱动器(听到的是电流环 1–4kHz 啸叫)、音圈/电磁铁(音高直接等于驱动频率, 需要另一种后端)、
-压电/超声电机(40kHz)、异步电机 + 变频器(转速与音高脱钩, 听到的是载波)。
-
-### 伺服舵机为什么音高不来自输出轴
-
-舵机的输出轴被减速箱压到几十转, 但你听到的音高来自**减速箱前面那个小电机**的换向频率。
-所以库里 `blades` 填 3(换向片数), 转速范围填的是**内部电机**的 600–20000 rpm, 而不是输出轴的几十转。
-
-| 型号 | 内部转速 | 命令更新率 | τ | 能唱的音域 |
-|---|---|---|---|---|
-| 数字舵机 333Hz | 600–16000 | 333Hz | 35ms | B0–G5 |
-| 连续旋转舵机 | 800–20000 | 50Hz | 60ms | D#1–B5 |
-| MG996R 金属齿 | 600–12000 | 50Hz | 120ms | B0–D5 |
-
-三个区别都是真的:连续旋转舵机要去掉限位才能当双向电机用;数字舵机的控制环跑到 300Hz 以上,
-能唱更快的句子;金属齿轮惯性大,换速慢一倍。
-
-### 由此发现的一条硬约束
-
-**音符不能短于电机的整定时间。**一阶惯性 τ 要 3.5τ 才到位(96%),比这短的音符根本唱不到目标音高。
-实测 MG996R(τ=120ms)用 0.28 秒的音符时检出率只有 19%,但检出的音偏差只有 **0.1 音分** ——
-说明不是音高算错, 是它来不及换速。
-
-现在 `motors.ensemble()` 会强制 `step = max(角色步长, 3.5×τ)`,于是每台电机的采样周期自动不同
-(40mm 扇 280ms、数字舵机 400ms、MG996R 650ms)。加上这条约束后整段检出率从 48% 升到 70%。
-
-### 四种旋钮,都是物理量
-
-* `glide` **转动惯量**:空心杯 15ms、穿越机 12ms、140mm 大扇 220ms、带减速箱的步进 250ms。
-  快句子只能给惯性小的电机,这不是编曲选择,是物理限制。
-* `noise_center` **宽频噪声中心**:小扇 900Hz 是"嘶",大扇 200Hz 是"呼",步进几乎没噪声。
-* `timbre` **谐波衰减指数**:步进 0.5 是咔哒,大扇 1.5 接近正弦。
-* `noise_gain` **噪声/音高比例**:振动马达 1.4(几乎全是震动噪声),步进 0.12(几乎纯音)。
-
-
-### 一个必须承认的物理限制
-
-每台风扇的可用音域只有 **约 2 个八度**,而六台挤在一起时,低频三个声部(120mm/140mm/92mm)
-的基频和二次谐波会互相重叠。实测检出率:
-
-| 声部 | 检出率 |
-|---|---|
-| 40mm 主旋律 | 97% |
-| 60mm 副旋律 | 92% |
-| 80mm 和声 | 86% |
-| 92mm 内声部 | 40% |
-| 120mm 低音 | 11% |
-| 140mm 超低 | 22% |
-
-这不是测错了,是低频确实糊成一团 —— 降低音量也没用(试过,只从 11% 到 11%)。
-真要清爽,只能**减少低频声部数量**(`--voices 4`)或者手动把某个低音声部整体挪一个八度。
-
-
-
-## 5. 接单片机(路线 A)
-
-### 接线(Uno/Nano,5V 板)
-
-```
-外部 12V 电源 +  ──────────────► 风扇 12V
-外部 12V 电源 -  ──┬───────────► 风扇 GND
-                   └───────────► Arduino GND   (必须共地)
-Arduino D9  ───────────────────► 风扇 PWM      (OC1A, 25kHz)
-Arduino D2  ───────────────────► 风扇 TACH     (转速反馈, 内部上拉)
-```
-
-4-pin 风扇的 PWM 线是**输入**,规格要求 25kHz。低于 20kHz 你会听到 PWM 载波啸叫,
-所以固件用 Timer1 硬 PWM 精确打在 25.0kHz(640 级分辨率)。
-
-想试路线 B(线圈啸叫):D11 → 100Ω → MOSFET 栅极, MOSFET 串在风扇 GND 侧, 加续流二极管。
-**这条路上风扇可能完全不转,只有线圈在叫。**
-
-### 固件
-
-`arduino/fan_synth/fan_synth.ino`,115200 波特率,行协议:
-
-| 命令 | 作用 |
-|---|---|
-| `d<0..1000>` | 占空比千分比 |
-| `a<Hz>` | 模式 B 音频方波频率,0 = 关 |
-| `q` | 查询,回 `t<rpm> d<permille> a<hz>` |
-| `x` | 全停 |
-
-4 秒收不到命令会自动降到 0 —— 主机崩了风扇不该卡在 100%。
-
-### 校准(重要,决定音准)
-
-```powershell
-# 1. 手动试占空比, 记下"刚好能转起来"的值
-python -m fan_music doctor
-# 用任意串口工具发 d200 / d300 ... 每次发 q 读回 t<rpm>
-
-# 2. 把结果填进乐谱
-#    start_duty = 刚好能转的占空比(如 0.22)
-#    min_rpm    = 那个占空比下的转速(如 400)
-#    max_rpm    = d1000 时的转速(查风扇规格书)
-
-# 3. 跑
-python -m fan_music play scores/ode_to_joy.fscore --backend serial --port COM3
-```
-
-## 6. 让主板风扇唱(路线 C,风险自负)
-
-```powershell
-python -m fan_music play scores/ode_to_joy.fscore --backend command --cmd "nbfc set -s {duty}"
-```
-
-`{duty}` 是百分比(如 71.4),每次换速起一个进程 —— 所以这条路**只能放很慢的曲子**
-(命令后端 0.12s 节流,实际 10Hz 量级)。而且:
-
-* FanControl / 主板 BIOS 的风扇曲线会把控制权抢回去,你得先设成固定手动模式;
-* 很多 EC 每秒只接受一两次写入,再快就被丢;
-* 笔记本上 EC 固件通常直接拒绝,或者触发过热保护。
-
-## 7. 已知的坑
-
-* **启动死区**:占空比低于 ~20% 风扇不转。所以休止符不是"停转",是保持最低转速 —— 停了再启动要 0.5–2 秒。
-* **速度**:τ 0.1–0.6s,16 分音符没戏。示例谱 92–100 BPM 的四分音符刚好。
-* **叶片数**:7 叶和 9 叶差一个大三度。40mm 万转小风扇音域高得多,但更刺耳。
-* **噪声**:这是用噪声演奏噪声,100% 占空比很吵。别在深夜开。
-* **寿命**:频繁加减速对含油轴承不友好,用双滚珠;别拿贵风扇做实验。
-* **方向反了**:叶片形状不对称的风扇,反转时音色会变。
-* **3-pin 风扇**没有 PWM 线,只能走路线 B。
-
-## 8. 文件
-
-```
-fan_music/score.py       .fscore 乐谱解析(单电机/多电机, 音符/拍数/物理参数)
-fan_music/engine.py      音高 → 谐波 → 转速 → 占空比; 饱和控制与换速时间表
-fan_music/audio.py       多电机声学仿真 → 立体声 WAV; 分声部 FFT 音准自检
-fan_music/midi.py        无依赖的 Standard MIDI 解析器
-fan_music/arrange.py      MIDI → 多电机谱的改编(分层抽取/移八度/重采样)
-fan_music/motors.py      电机型号库: 8 种风扇 = 8 种乐器
-fan_music/backends.py    null / serial / command 三种出口
-fan_music/cli.py         命令行
-scores/*.fscore          示例谱: 欢乐颂、俄罗斯方块、坏苹果(4/6 电机版)
-arduino/fan_synth/       Arduino 固件
-tools/fan_probe.ps1      给机器做风扇体检(读温度/读转速/控转速能不能)
-tools/check_tonal.py     检查改编结果是否调性稳定、旋律是否级进
-tools/verify_wav.py      对已渲染的 WAV 复验音准, 不用重渲
-out/*.wav                渲染结果
-```
-
-### 桌面编辑器 `fan_studio.exe`
-
-`studio/` 是完整的 WinForms 编辑器，不是 HTML 原型。它直接使用 C# 物理引擎，
-`.fscore` 仍是唯一工程格式，现有 Python 命令行与 Arduino 后端不需要改。
-
-用户文档：[使用说明](studio/使用说明.md) · [用户协议](studio/用户协议.md) ·
-[隐私政策](studio/隐私政策.md)。首次启动必须阅读并同意后两份政策，之后可从编辑器右上角 `?` 再次查看。
-
-应用图标源稿位于 `studio/assets/fan_studio_icon.png`，多尺寸 Windows 图标为
-`studio/assets/fan_studio.ico`，构建脚本会自动嵌入 `fan_studio.exe`。
-
-```powershell
-cd studio
-powershell -ExecutionPolicy Bypass -File .\build.ps1
-.\fan_studio.exe
-.\fan_studio.exe ..\scores\bad_apple_6motors_45s.fscore
-```
-
-界面采用四区工作台：
-
-* 左侧电机库：搜索、族系分组、显示音域和最短音符；拖进卷帘即可新建声部；
-* 同一电机在型号库和卷帘里使用同一颜色，避免多电机编制时对不上号；
-* 中央卷帘：选音符、框选、拖动音高/拍位、拉右侧改变时值、滚轮滚动、`Ctrl+滚轮` 缩放；
-* 纯文字音高尺：低缩放只标 C，放大后标全音名；选中电机音域内的标签与音域带同色高亮；
-* 鼠标悬停任意音高行会显示频率，以及当前电机需要的 RPM；
-* 点击左侧音高名可立即试听该音，超出当前电机音域时只提示、不发声；
-* “适应内容”会同时收敛时间范围与音高范围，避免大片空行；
-* 右侧检查器：编辑音高/起点/长度与全部电机物理参数，实时显示目标转速、占空比和物理约束；
-* 底部诊断：同时发声数曲线、8 台低频风险线、音域/时值告警。
-
-常用快捷键：`Space` 播放/停止，`Ctrl+S` 保存，`Ctrl+O` 打开，`Ctrl+Z/Y` 撤销/重做，
-`Ctrl+D` 复制，`Ctrl+A` 全选，方向键微调，`Shift+左右` 改时值，
-`Ctrl+上下` 移八度，`Ctrl+0` 适应内容，`Ctrl+1…9` 切声部，
-`Ctrl+F` 搜索电机库，`F1` 打开完整说明，`F5` 渲染并播放。
-
-构建与自动检查：
-
-```powershell
-.\fan_studio.exe --selftest       # 核心渲染 + WAV + FFT
-.\fan_studio.exe --uitest         # 编辑器交互冒烟测试
-.\fan_studio.exe --scorecheck     # 全部 scores/*.fscore 载入与往返
-.\fan_studio.exe --snapshot studio_snapshot.png ..\scores\bad_apple_6motors_45s.fscore
-```
-
-编辑器兼容 `[voice fan40]`、`[voice lead]` 这类逻辑声部名，也兼容旧式无 header
-单电机谱。逻辑声部名会按显式物理参数工作；参数与已知型号完全一致时会自动恢复型号元数据。
-MIDI 导入复用现有 `python -m fan_music import-midi`，因此改编规则不会出现 C#/Python 两套结果。
-
-
-### 乐谱格式
-
-```
-bpm = 92            # 速度
-blades = 7          # 叶片数(决定音域!)
-harmonic = 2        # 固定第 2 阶谐波; auto = 自动挑
-glide = 0.16        # 转速惯性时间常数(秒)
-min_rpm = 400       # 校准得来
-max_rpm = 2000
-start_duty = 0.22   # 刚好能转的占空比
-detune = 0          # 整体微调, 单位音分
-
-E4:1 E4:1 F4:1 G4:1   # 音符:拍数
-r:2                   # 休止
-```
-
-## 9. 许可证与第三方组件
-
-除非文件内另有说明，本项目源代码和随附文档按 [MIT License](LICENSE) 提供。
-第三方运行时与构建工具的许可说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-
-维护者：[etyui508](https://github.com/etyui508) ·
-问题反馈：[GitHub Issues](https://github.com/etyui508/fan-studio/issues)
-
-### 公开站点
-
-| 地址 | 用途 | 实现 |
-|---|---|---|
-| <https://fanstudio.bony-doorframe-shortly.top> | 主官网 | `site/` 静态页面，由 `server/fan_studio_web.py` 提供 |
-| <https://fan-api.bony-doorframe-shortly.top> | 公共 API | `/v1/health`、`/v1/latest`、`/v1/motors`、`/v1/scores`、`/v1/links` |
-| <https://fan-download.bony-doorframe-shortly.top> | 下载入口 | `/` 跳转最新 Release，`/win` 跳转最新 Windows ZIP |
-
-服务通过现有 Cloudflare Tunnel 暴露到本机端口 `8180` / `8181` / `8182`。
-systemd 单元样例位于 [`deploy/systemd/`](deploy/systemd/)。
-
-GitHub Release：<https://github.com/etyui508/fan-studio/releases>
-
-API 示例：
+The public API is read-only and requires no key:
 
 ```text
-GET https://fan-api.bony-doorframe-shortly.top/v1/health
-GET https://fan-api.bony-doorframe-shortly.top/v1/latest
-GET https://fan-api.bony-doorframe-shortly.top/v1/motors
-GET https://fan-api.bony-doorframe-shortly.top/v1/scores
+GET /v1/health
+GET /v1/latest
+GET /v1/motors
+GET /v1/scores
+GET /v1/links
 ```
+
+The service uses only the Python standard library. Deployment units are in
+[`deploy/systemd`](deploy/systemd).
+
+## Safety
+
+Speed, duty cycle, range, and 3.5τ values in the software are simulation and
+editing parameters, not motor ratings or safe limits. Real hardware can be
+damaged or cause injury through overspeed, runaway, bearing or blade failure,
+overheating, or electrical faults. Never use the software's values directly as
+hardware drive limits.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md). Detailed release notes are maintained from the
+next release onward.
+
+## User documents
+
+- [English user guide](docs/en/USER_GUIDE.md)
+- [English terms](docs/en/TERMS.md)
+- [English privacy policy](docs/en/PRIVACY.md)
+- [Chinese user guide](studio/使用说明.md)
+- [Chinese terms](studio/用户协议.md)
+- [Chinese privacy policy](studio/隐私政策.md)
+
+## License
+
+Source code and project documentation are provided under the
+[MIT License](LICENSE), copyright 2026 etyui508.
+Third-party components are listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Maintainer: [etyui508](https://github.com/etyui508)

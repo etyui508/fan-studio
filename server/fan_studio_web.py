@@ -24,7 +24,7 @@ SITE = ROOT / "site"
 REPO = "etyui508/fan-studio"
 RELEASES = f"https://github.com/{REPO}/releases"
 LATEST_API = f"https://api.github.com/repos/{REPO}/releases/latest"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 
 _release_cache = {"at": 0.0, "data": None}
 _release_lock = threading.Lock()

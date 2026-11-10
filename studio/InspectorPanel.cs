@@ -28,8 +28,8 @@ namespace FanStudio
         {
             BackColor = StudioTheme.Panel;
             var header = new SectionHeader();
-            header.Text = "检查器";
-            header.Detail = "上下文";
+            header.Text = I18n.UI("检查器");
+            header.Detail = I18n.UI("上下文");
             header.Dock = DockStyle.Top;
             Controls.Add(header);
 
@@ -102,11 +102,11 @@ namespace FanStudio
             wrap.BackColor = Color.Transparent;
             wrap.Paint += delegate(object s, PaintEventArgs e)
             {
-                TextRenderer.DrawText(e.Graphics, "当前声部", StudioTheme.UiSmall,
+                TextRenderer.DrawText(e.Graphics, I18n.UI("当前声部"), StudioTheme.UiSmall,
                     new Point(0, 2), StudioTheme.Muted);
             };
             var picker = new StudioButton();
-            picker.Text = _voice == null ? "选择声部  ▼" :
+            picker.Text = _voice == null ? I18n.UI("选择声部  ▼") :
                 _voice.Label + "  ·  " + _voice.ModelText + "  ▼";
             picker.Bounds = new Rectangle(0, 22, wrap.Width, 28);
             picker.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
@@ -148,15 +148,19 @@ namespace FanStudio
         {
             AddHeading("库型号");
             var grid = Grid();
-            Row(grid, "型号", m.Model);
-            Row(grid, "族系", m.Family);
-            Row(grid, "机理", m.Semantics);
-            Row(grid, "角色", m.Role);
+            Row(grid, "型号", I18n.MotorModel(m));
+            Row(grid, "族系", I18n.MotorFamily(m.Family));
+            Row(grid, "机理", I18n.MotorSemantics(m.Semantics));
+            Row(grid, "角色", I18n.MotorRole(m.Role));
             Row(grid, "音域", HzName(m.LoHz) + " – " + HzName(m.HiHz));
-            Row(grid, "最短音符", (3.5 * m.Glide / 0.5).ToString("0.00", CI) + " 拍 @120 BPM");
+            Row(grid, "最短音符", (3.5 * m.Glide / 0.5).ToString("0.00", CI) +
+                I18n.L(" 拍 @120 BPM", " beats @120 BPM"));
             Row(grid, "惯性 τ", (m.Glide * 1000).ToString("0", CI) + " ms");
             Add(grid);
-            AddText(m.Note, StudioTheme.Muted, 58);
+            AddText(I18n.IsEnglish
+                ? I18n.MotorFamily(m.Family) + " · " + I18n.MotorSemantics(m.Semantics) +
+                    " · " + I18n.MotorRole(m.Role)
+                : m.Note, StudioTheme.Muted, 58);
             var add = Button("拖入卷帘 / 双击添加到当前拍位");
             add.Accent = true;
             add.Click += delegate
@@ -209,10 +213,12 @@ namespace FanStudio
             bool shortNote = n.Beats + 1e-6 < _voice.MinimumBeats(_doc.Bpm);
             bool badRange = n.LastWarn.Length > 0;
             string message;
-            if (badRange) message = "✕ 超出 " + _voice.Label + " 的音域 · " + n.LastWarn;
-            else if (shortNote) message = "✕ 音符过短 · 至少 " +
-                _voice.MinimumBeats(_doc.Bpm).ToString("0.00", CI) + " 拍才来得及换速";
-            else message = "✓ 在音域内，长度达标";
+            if (badRange) message = I18n.L("✕ 超出 ", "✕ Out of range for ") +
+                _voice.Label + I18n.L(" 的音域 · ", " · ") + I18nWarn(n.LastWarn);
+            else if (shortNote) message = I18n.L("✕ 音符过短 · 至少 ", "✕ Too short · needs at least ") +
+                _voice.MinimumBeats(_doc.Bpm).ToString("0.00", CI) +
+                I18n.L(" 拍才来得及换速", " beats to settle");
+            else message = I18n.L("✓ 在音域内，长度达标", "✓ In range and long enough");
             AddNotice(message, badRange || shortNote);
 
             AddSpace(8);
@@ -226,7 +232,8 @@ namespace FanStudio
 
         void BuildMultiSelection()
         {
-            AddHeading("已选 " + _notes.Count + " 个音符");
+            AddHeading(I18n.L("已选 " + _notes.Count + " 个音符",
+                _notes.Count + " notes selected"));
             int lo = 127, hi = 0;
             double first = double.MaxValue, last = 0;
             foreach (var n in _notes)
@@ -239,9 +246,10 @@ namespace FanStudio
             var grid = Grid();
             Row(grid, "音域", ScoreParser.MidiToName(lo) + " – " + ScoreParser.MidiToName(hi));
             Row(grid, "拍位", first.ToString("0.##", CI) + " – " + last.ToString("0.##", CI));
-            Row(grid, "操作", "拖动整体移动，Delete 删除");
+            Row(grid, "操作", I18n.L("拖动整体移动，Delete 删除", "Drag to move · Delete to remove"));
             Add(grid);
-            AddText("方向键微调：左右 1/4 拍，上下 1 个半音。Shift+左右改变长度。",
+            AddText(I18n.L("方向键微调：左右 1/4 拍，上下 1 个半音。Shift+左右改变长度。",
+                "Arrow keys nudge by 1/4 beat or one semitone. Shift+Left/Right changes duration."),
                 StudioTheme.Muted, 38);
         }
 
@@ -277,7 +285,7 @@ namespace FanStudio
             actions.WrapContents = false;
             actions.BackColor = Color.Transparent;
             var audition = new StudioButton();
-            audition.Text = "试听声部";
+            audition.Text = I18n.UI("试听声部");
             audition.Compact = true;
             audition.Width = 90;
             audition.Height = 30;
@@ -287,7 +295,7 @@ namespace FanStudio
                 if (AuditionRequested != null) AuditionRequested(this, new VoiceEventArgs(_voice));
             };
             var remove = new StudioButton();
-            remove.Text = "删除声部";
+            remove.Text = I18n.UI("删除声部");
             remove.Compact = true;
             remove.Danger = true;
             remove.Width = 90;
@@ -350,7 +358,7 @@ namespace FanStudio
             {
                 TableLayoutPanel table = top as TableLayoutPanel;
                 if (table == null || table.Controls.Count < 2) continue;
-                string label = table.Controls[0].Text;
+                string label = table.Controls[0].Tag as string ?? table.Controls[0].Text;
                 if (field == "blades" && label == "每转事件数") source = table.Controls[1] as DarkNumeric;
                 if (field == "harmonic" && label == "谐波次数") source = table.Controls[1] as DarkNumeric;
                 if (field == "min" && label == "最低转速 rpm") source = table.Controls[1] as DarkNumeric;
@@ -391,11 +399,15 @@ namespace FanStudio
         {
             AddSpace(8);
             AddHeading("快捷键");
-            AddText("Space 播放/停止    F5 渲染并播放\nCtrl+S 保存    Ctrl+Shift+S 另存为\nCtrl+F 搜索电机库    Ctrl+I 导入 MIDI\nCtrl+Z/Y 撤销/重做    Ctrl+A 全选    Ctrl+D 复制\nCtrl+上下 移八度    Home/End 播放头首尾\nCtrl+0 适应内容    Ctrl+1…9 切声部\n滚轮 纵向    Shift+滚轮 横向    Ctrl+滚轮 缩放\nF1 查看完整快捷键", StudioTheme.Muted, 132);
+            AddText(I18n.L(
+                "Space 播放/停止    F5 渲染并播放\nCtrl+S 保存    Ctrl+Shift+S 另存为\nCtrl+F 搜索电机库    Ctrl+I 导入 MIDI\nCtrl+Z/Y 撤销/重做    Ctrl+A 全选    Ctrl+D 复制\nCtrl+上下 移八度    Home/End 播放头首尾\nCtrl+0 适应内容    Ctrl+1…9 切声部\n滚轮 纵向    Shift+滚轮 横向    Ctrl+滚轮 缩放\nF1 查看完整快捷键",
+                "Space play/stop    F5 render & play\nCtrl+S save    Ctrl+Shift+S save as\nCtrl+F search motors    Ctrl+I import MIDI\nCtrl+Z/Y undo/redo    Ctrl+A select all    Ctrl+D duplicate\nCtrl+Up/Down octave    Home/End playhead start/end\nCtrl+0 fit content    Ctrl+1…9 select voice\nWheel vertical    Shift+wheel horizontal    Ctrl+wheel zoom\nF1 full shortcut guide"),
+                StudioTheme.Muted, 132);
         }
 
         void AddHeading(string text)
         {
+            text = I18n.UI(text);
             var p = new Panel();
             p.Height = 31;
             p.BackColor = Color.Transparent;
@@ -410,6 +422,7 @@ namespace FanStudio
 
         void AddText(string text, Color color, int height)
         {
+            text = I18n.UI(text);
             var l = new Label();
             l.Text = text;
             l.ForeColor = color;
@@ -456,7 +469,7 @@ namespace FanStudio
             int row = grid.RowCount++;
             grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 27));
             var k = new Label();
-            k.Text = key;
+            k.Text = I18n.UI(key);
             k.ForeColor = StudioTheme.Muted;
             k.Font = StudioTheme.UiSmall;
             k.Dock = DockStyle.Fill;
@@ -484,7 +497,8 @@ namespace FanStudio
             t.Margin = new Padding(0, 1, 0, 1);
             t.BackColor = Color.Transparent;
             var l = new Label();
-            l.Text = label;
+            l.Text = I18n.UI(label);
+            l.Tag = label;
             l.ForeColor = StudioTheme.Muted;
             l.Font = StudioTheme.UiSmall;
             l.Dock = DockStyle.Fill;
@@ -505,7 +519,7 @@ namespace FanStudio
         StudioButton Button(string text)
         {
             var b = new StudioButton();
-            b.Text = text;
+            b.Text = I18n.UI(text);
             b.Height = 34;
             b.Font = StudioTheme.Ui;
             return b;
@@ -534,6 +548,14 @@ namespace FanStudio
             if (hz <= 0) return "—";
             double midi = 69 + 12 * Math.Log(hz / 440.0, 2);
             return ScoreParser.MidiToName((int)Math.Round(midi));
+        }
+
+        static string I18nWarn(string warn)
+        {
+            if (!I18n.IsEnglish) return warn;
+            if (warn == "超出上限") return "above upper limit";
+            if (warn == "低于下限") return "below lower limit";
+            return warn;
         }
     }
 

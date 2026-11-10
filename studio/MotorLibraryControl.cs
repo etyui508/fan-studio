@@ -30,8 +30,8 @@ namespace FanStudio
             Padding = new Padding(0);
 
             var head = new SectionHeader();
-            head.Text = "电机库";
-            head.Detail = "拖入卷帘";
+            head.Text = I18n.UI("电机库");
+            head.Detail = I18n.UI("拖入卷帘");
             head.Dock = DockStyle.Top;
             Controls.Add(head);
 
@@ -95,7 +95,9 @@ namespace FanStudio
             foreach (var m in _catalog)
             {
                 if (m.Kind != "revolve") continue;
-                string hay = (m.Key + " " + m.Model + " " + m.Family + " " + m.Role + " " + m.Note).ToLowerInvariant();
+                string hay = (m.Key + " " + m.Model + " " + I18n.MotorModel(m) + " " +
+                    m.Family + " " + I18n.MotorFamily(m.Family) + " " +
+                    m.Role + " " + I18n.MotorRole(m.Role) + " " + m.Note).ToLowerInvariant();
                 if (query.Length > 0 && hay.IndexOf(query, StringComparison.Ordinal) < 0) continue;
                 if (!byGroup.ContainsKey(m.Family))
                 {
@@ -109,7 +111,7 @@ namespace FanStudio
             {
                 currentFamily = family;
                 var lbl = new Label();
-                lbl.Text = currentFamily;
+                lbl.Text = I18n.MotorFamily(currentFamily);
                 lbl.Font = StudioTheme.UiSmall;
                 lbl.ForeColor = StudioTheme.Muted;
                 lbl.Height = 25;
@@ -148,7 +150,7 @@ namespace FanStudio
             if (shown == 0)
             {
                 var empty = new Label();
-                empty.Text = "没有匹配的可定音高电机";
+                empty.Text = I18n.UI("没有匹配的可定音高电机");
                 empty.AutoSize = false;
                 empty.Height = 70;
                 empty.Width = Math.Max(150, _list.ClientSize.Width - 30);
@@ -179,7 +181,7 @@ namespace FanStudio
         void SetCue()
         {
             _cueActive = true;
-            _search.Text = "搜索型号 / 族系 / 角色";
+            _search.Text = I18n.UI("搜索型号 / 族系 / 角色");
             _search.ForeColor = StudioTheme.Muted;
         }
     }
@@ -219,7 +221,9 @@ namespace FanStudio
                 ControlStyles.SupportsTransparentBackColor, true);
             BackColor = Color.Transparent;
             _tip = new ToolTip();
-            _tip.SetToolTip(this, motor.Note);
+            _tip.SetToolTip(this, I18n.IsEnglish
+                ? I18n.MotorFamily(Motor.Family) + " · " + I18n.MotorRole(Motor.Role)
+                : Motor.Note);
         }
 
         protected override void OnMouseEnter(EventArgs e)
@@ -293,17 +297,19 @@ namespace FanStudio
             Color fam = StudioTheme.MotorColor(Motor);
             using (var brush = new SolidBrush(fam))
                 g.FillRectangle(brush, 10, 13, 8, 8);
-            TextRenderer.DrawText(g, Motor.Model, StudioTheme.UiBold,
+            TextRenderer.DrawText(g, I18n.MotorModel(Motor), StudioTheme.UiBold,
                 new Rectangle(25, 7, Width - 34, 21), StudioTheme.Text,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
 
             string range = RangeText(Motor);
             double minBeats = 3.5 * Motor.Glide / 0.5;
-            string detail = range + " · 最短 " + minBeats.ToString("0.00", CultureInfo.InvariantCulture) + " 拍";
+            string detail = range + (I18n.IsEnglish ? " · min " : " · 最短 ") +
+                minBeats.ToString("0.00", CultureInfo.InvariantCulture) +
+                (I18n.IsEnglish ? " beat" : " 拍");
             TextRenderer.DrawText(g, detail, StudioTheme.UiSmall,
                 new Rectangle(25, 29, Width - 34, 18), StudioTheme.Muted,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
-            TextRenderer.DrawText(g, Motor.Role, StudioTheme.UiSmall,
+            TextRenderer.DrawText(g, I18n.MotorRole(Motor.Role), StudioTheme.UiSmall,
                 new Rectangle(10, 49, Width - 20, 15), StudioTheme.Dim,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
         }

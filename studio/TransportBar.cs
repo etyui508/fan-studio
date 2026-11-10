@@ -20,6 +20,7 @@ namespace FanStudio
         readonly StudioButton _save;
         readonly StudioButton _render;
         readonly StudioButton _help;
+        readonly StudioButton _language;
         readonly Panel _left;
         readonly FlowLayoutPanel _right;
         readonly ToolTip _tips;
@@ -31,6 +32,7 @@ namespace FanStudio
         public event EventHandler SaveRequested;
         public event EventHandler RenderRequested;
         public event EventHandler ShowHelpRequested;
+        public event EventHandler LanguageToggleRequested;
         public event EventHandler<BpmEventArgs> BpmChanged;
 
         public decimal Bpm
@@ -117,38 +119,42 @@ namespace FanStudio
 
             _right = new FlowLayoutPanel();
             _right.Dock = DockStyle.Right;
-            _right.Width = 432;
+            _right.Width = 550;
             _right.FlowDirection = FlowDirection.RightToLeft;
             _right.WrapContents = false;
             _right.Padding = new Padding(0, 12, 14, 0);
             _right.BackColor = Color.Transparent;
             Controls.Add(_right);
 
-            _render = MakeRight("渲染并播放", 106, true);
+            _render = MakeRight(I18n.L("渲染并播放", "Render & Play"), 112, true);
             _render.Click += delegate { Fire(RenderRequested); };
-            _save = MakeRight("保存", 66, false);
+            _save = MakeRight(I18n.L("保存", "Save"), 62, false);
             _save.Click += delegate { Fire(SaveRequested); };
-            _open = MakeRight("打开 .fscore", 104, false);
+            _open = MakeRight(I18n.L("打开 .fscore", "Open .fscore"), 108, false);
             _open.Click += delegate { Fire(OpenRequested); };
-            _import = MakeRight("导入 MIDI", 88, false);
+            _import = MakeRight(I18n.L("导入 MIDI", "Import MIDI"), 92, false);
             _import.Click += delegate { Fire(ImportMidiRequested); };
             _help = MakeRight("?", 34, false);
             _help.Font = StudioTheme.UiBold;
             _help.Click += delegate { Fire(ShowHelpRequested); };
+            _language = MakeRight(I18n.L("中文", "English"), 78, false);
+            _language.Click += delegate { Fire(LanguageToggleRequested); };
             _right.Controls.Add(_render);
             _right.Controls.Add(_save);
             _right.Controls.Add(_open);
             _right.Controls.Add(_import);
             _right.Controls.Add(_help);
+            _right.Controls.Add(_language);
 
             _tips = new ToolTip();
-            _tips.SetToolTip(_play, "Space：播放/停止");
-            _tips.SetToolTip(_stop, "Esc：停止播放");
-            _tips.SetToolTip(_import, "Ctrl+I：导入 MIDI");
-            _tips.SetToolTip(_open, "Ctrl+O：打开 .fscore");
-            _tips.SetToolTip(_save, "Ctrl+S：保存；Ctrl+Shift+S：另存为");
-            _tips.SetToolTip(_render, "F5：渲染并播放");
-            _tips.SetToolTip(_help, "F1：使用说明、协议与快捷键");
+            _tips.SetToolTip(_play, I18n.L("Space：播放/停止", "Space: play / stop"));
+            _tips.SetToolTip(_stop, I18n.L("Esc：停止播放", "Esc: stop playback"));
+            _tips.SetToolTip(_import, I18n.L("Ctrl+I：导入 MIDI", "Ctrl+I: import MIDI"));
+            _tips.SetToolTip(_open, I18n.L("Ctrl+O：打开 .fscore", "Ctrl+O: open .fscore"));
+            _tips.SetToolTip(_save, I18n.L("Ctrl+S：保存；Ctrl+Shift+S：另存为", "Ctrl+S: save; Ctrl+Shift+S: save as"));
+            _tips.SetToolTip(_render, I18n.L("F5：渲染并播放", "F5: render and play"));
+            _tips.SetToolTip(_help, I18n.L("F1：使用说明、协议与快捷键", "F1: guide, licenses and shortcuts"));
+            _tips.SetToolTip(_language, I18n.L("切换到 English", "切换到中文"));
         }
 
         StudioButton MakeRight(string text, int width, bool accent)

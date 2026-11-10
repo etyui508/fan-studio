@@ -26,8 +26,9 @@ jobs:
           Copy-Item .\studio\fan_core_test.exe $out
           Copy-Item .\studio\motors.txt $out
           Copy-Item .\studio\selftest.fscore $out
-          Copy-Item .\README.md, .\LICENSE, .\THIRD_PARTY_NOTICES.md $out
+          Copy-Item .\README.md, .\README.zh.md, .\CHANGELOG.md, .\CHANGELOG.zh.md, .\LICENSE, .\THIRD_PARTY_NOTICES.md $out
           Copy-Item .\studio\使用说明.md, .\studio\用户协议.md, .\studio\隐私政策.md $out
+          Copy-Item .\docs $out -Recurse
           Copy-Item .\scores $out -Recurse
           Copy-Item .\fan_music $out -Recurse
           Copy-Item .\arduino $out -Recurse

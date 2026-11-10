@@ -1,12 +1,13 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#17181c">
-  <meta name="description" content="fan_studio：把风扇和电机变成乐器的多声部编辑器。">
-  <title>fan_studio — 让风扇成为乐器</title>
+  <meta name="description" content="fan_studio turns cooling fans and electric motors into a multi-voice musical instrument.">
+  <title>fan_studio — Turn fans into instruments</title>
   <link rel="icon" href="/assets/fan-studio-icon.png">
+  <link rel="alternate" hreflang="zh-CN" href="https://fanstudio.bony-doorframe-shortly.top/zh/">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -16,10 +17,11 @@
       <span>fan_studio</span>
     </a>
     <nav>
-      <a href="#features">功能</a>
-      <a href="#download">下载</a>
+      <a href="#features">Features</a>
+      <a href="#download">Download</a>
       <a href="https://fan-api.bony-doorframe-shortly.top/v1/health">API</a>
       <a href="https://github.com/etyui508/fan-studio">GitHub</a>
+      <a href="/zh/">中文</a>
     </nav>
   </header>
 
@@ -27,69 +29,57 @@
     <section class="hero">
       <div class="hero-copy">
         <div class="eyebrow"><span id="api-dot"></span> FAN-MOTOR MUSIC WORKSTATION</div>
-        <h1>让风扇<br><em>成为乐器</em></h1>
-        <p>把叶片通过频率、换相脉冲和电机惯性变成可演奏的音高。写谱、听见、校准，再交给真实硬件。</p>
+        <h1>Make fans<br><em>play music</em></h1>
+        <p>Turn blade-pass frequencies, commutation pulses, and motor inertia into playable pitch. Write, listen, calibrate, then drive real hardware.</p>
         <div class="actions">
-          <a class="button primary" href="https://fan-download.bony-doorframe-shortly.top/win">下载 Windows 版</a>
-          <a class="button" href="https://github.com/etyui508/fan-studio">查看源码</a>
+          <a class="button primary" href="https://fan-download.bony-doorframe-shortly.top/win">Download for Windows</a>
+          <a class="button" href="https://github.com/etyui508/fan-studio">View source</a>
         </div>
         <div class="meta">
           <span>Windows 10/11</span>
           <span>MIT License</span>
-          <span id="api-status">正在检查 API…</span>
+          <span id="api-status">Checking API…</span>
         </div>
       </div>
       <div class="hero-visual">
         <div class="halo"></div>
-        <img class="app-icon" src="/assets/fan-studio-icon.png" alt="fan_studio 图标">
-        <img class="screenshot" src="/assets/fan-studio-editor.png" alt="fan_studio 编辑器界面">
+        <img class="app-icon" src="/assets/fan-studio-icon.png" alt="fan_studio icon">
+        <img class="screenshot" src="/assets/fan-studio-editor-en.png" alt="fan_studio editor">
       </div>
     </section>
 
     <section class="statement">
-      <div>
-        <span class="number">40</span>
-        <span>种电机型号</span>
-      </div>
-      <div>
-        <span class="number">16</span>
-        <span>个物理族系</span>
-      </div>
-      <div>
-        <span class="number">12</span>
-        <span>声部同台编辑</span>
-      </div>
-      <div>
-        <span class="number">1.0</span>
-        <span>当前编辑器版本</span>
-      </div>
+      <div><span class="number">40</span><span>motor models</span></div>
+      <div><span class="number">16</span><span>physical families</span></div>
+      <div><span class="number">12</span><span>voices on stage</span></div>
+      <div><span class="number">1.1</span><span>current version</span></div>
     </section>
 
     <section id="features" class="features">
       <div class="section-head">
         <span>BUILT FOR THE PHYSICS</span>
-        <h2>不是采样器。<br>是电机工作台。</h2>
+        <h2>Not a sampler.<br>A motor workstation.</h2>
       </div>
       <div class="grid">
         <article>
           <b>01</b>
-          <h3>真实物理映射</h3>
-          <p>音高反解为叶片通过频率、换相频率或步进脉冲，再换算到转速与占空比。</p>
+          <h3>Physical pitch mapping</h3>
+          <p>Resolve pitch into blade passing, commutation, or step pulses, then map it to RPM and duty cycle.</p>
         </article>
         <article>
           <b>02</b>
-          <h3>专业钢琴卷帘</h3>
-          <p>拖动、框选、拉伸、缩放、撤销；音域、时值与同时发声风险直接显示在时间线上。</p>
+          <h3>Professional piano roll</h3>
+          <p>Drag, marquee-select, resize, zoom, and undo while range, timing, and concurrency warnings stay visible.</p>
         </article>
         <article>
           <b>03</b>
-          <h3>多电机声学仿真</h3>
-          <p>每个声部都有独立的惯性、噪声、摆位和音色。先听见结果，再决定是否接硬件。</p>
+          <h3>Multi-motor acoustics</h3>
+          <p>Every voice has its own inertia, noise, placement, and timbre. Hear the result before building the rig.</p>
         </article>
         <article>
           <b>04</b>
-          <h3>MIDI 自动改编</h3>
-          <p>分层抽取旋律与低音，按电机整定时间重采样，把普通 MIDI 变成风扇能唱的谱。</p>
+          <h3>MIDI arranging</h3>
+          <p>Extract melody and bass layers, then resample around each motor's settling time to create a fan-playable score.</p>
         </article>
       </div>
     </section>
@@ -97,13 +87,13 @@
     <section class="workflow">
       <div class="section-head">
         <span>WORKFLOW</span>
-        <h2>从一条旋律开始。</h2>
+        <h2>Start with one melody.</h2>
       </div>
       <ol>
-        <li><strong>导入 MIDI 或编辑 .fscore</strong><span>选择声部数量、时长和 BPM。</span></li>
-        <li><strong>在卷帘里校准</strong><span>看见音域越界、惯性不足和并发遮蔽。</span></li>
-        <li><strong>渲染并试听</strong><span>生成带风噪、声像和房间混响的立体声预览。</span></li>
-        <li><strong>接入真实硬件</strong><span>通过 Arduino/ESP32 串口按占空比时间轴驱动电机。</span></li>
+        <li><strong>Import MIDI or edit .fscore</strong><span>Choose voice count, duration, and BPM.</span></li>
+        <li><strong>Calibrate in the roll</strong><span>Catch range limits, slow settling, and low-frequency masking.</span></li>
+        <li><strong>Render and audition</strong><span>Generate a stereo preview with airflow noise, pan, and room reverb.</span></li>
+        <li><strong>Connect hardware</strong><span>Drive motors over Arduino or ESP32 with the planned duty timeline.</span></li>
       </ol>
     </section>
 
@@ -111,11 +101,11 @@
       <img src="/assets/fan-studio-icon.png" alt="">
       <div>
         <span class="eyebrow">LATEST RELEASE</span>
-        <h2>把风扇调到 A4。</h2>
-        <p>Windows 版压缩包包含编辑器、示例谱、电机库和离线文档。下载由 GitHub Releases 提供。</p>
+        <h2>Tune a fan to A4.</h2>
+        <p>The Windows package includes the editor, example scores, motor library, and offline documentation. Downloads are served by GitHub Releases.</p>
         <div class="actions">
-          <a class="button primary" href="https://fan-download.bony-doorframe-shortly.top/win">下载最新版</a>
-          <a class="button" href="https://github.com/etyui508/fan-studio/releases">全部版本</a>
+          <a class="button primary" href="https://fan-download.bony-doorframe-shortly.top/win">Download latest</a>
+          <a class="button" href="https://github.com/etyui508/fan-studio/releases">All releases</a>
         </div>
       </div>
     </section>
@@ -123,8 +113,8 @@
     <section class="api-card">
       <div>
         <span class="eyebrow">DEVELOPER API</span>
-        <h2>版本与电机数据，直接读取。</h2>
-        <p>无账号、无跟踪。提供健康检查、最新版本、电机库和示例谱列表。</p>
+        <h2>Read releases and motor data directly.</h2>
+        <p>No account and no tracking. Health, latest release, motor catalog, and example-score endpoints.</p>
       </div>
       <code>GET https://fan-api.bony-doorframe-shortly.top/v1/latest</code>
     </section>

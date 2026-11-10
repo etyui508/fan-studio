@@ -50,7 +50,7 @@ namespace FanStudio
         {
             _catalog = catalog;
             _scorePath = scorePath;
-            Text = "fan_studio — 电机乐器编辑器";
+            Text = I18n.L("fan_studio — 电机乐器编辑器", "fan_studio — Motor Instrument Editor");
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             BackColor = StudioTheme.Canvas;
             ForeColor = StudioTheme.Text;
@@ -119,7 +119,7 @@ namespace FanStudio
             Controls.Add(status);
 
             _statusText = new Label();
-            _statusText.Text = "就绪";
+            _statusText.Text = I18n.L("就绪", "Ready");
             _statusText.ForeColor = StudioTheme.Muted;
             _statusText.Font = StudioTheme.UiSmall;
             _statusText.AutoSize = false;
@@ -222,6 +222,7 @@ namespace FanStudio
             _transport.SaveRequested += delegate { SaveScore(false); };
             _transport.RenderRequested += delegate { RenderAndPlay(); };
             _transport.ShowHelpRequested += delegate { ShowLegalDocuments(); };
+            _transport.LanguageToggleRequested += delegate { ToggleLanguage(); };
             _transport.BpmChanged += delegate(object s, BpmEventArgs e)
             {
                 if (_fillingBpm || _doc == null || Math.Abs(_doc.Bpm - e.Bpm) < 1e-9) return;
@@ -243,7 +244,8 @@ namespace FanStudio
                     _inspector.ShowSelection(_doc, match, new List<EditorNote>());
                 }
                 else _inspector.ShowLibraryMotor(e.Motor);
-                SetStatus(e.Motor.Model + " · 拖入卷帘或双击添加声部");
+                SetStatus(I18n.MotorModel(e.Motor) +
+                    I18n.L(" · 拖入卷帘或双击添加声部", " · drag into the roll or double-click to add a voice"));
             };
             _library.MotorActivated += delegate(object s, MotorLibraryEventArgs e)
             {
@@ -294,8 +296,20 @@ namespace FanStudio
 
         void ShowLegalDocuments()
         {
-            using (var dialog = new LegalDialog(false))
-                dialog.ShowDialog(this);
+            while (true)
+            {
+                using (var dialog = new LegalDialog(false))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.Retry) break;
+                }
+            }
+        }
+
+        void ToggleLanguage()
+        {
+            if (!ConfirmDiscard()) return;
+            AppSettings.SetLanguage(I18n.IsEnglish ? UiLanguage.Chinese : UiLanguage.English);
+            Application.Restart();
         }
 
         public void LoadScore(string path, bool recordHistory)
@@ -306,7 +320,8 @@ namespace FanStudio
                 string text = File.ReadAllText(path, Encoding.UTF8);
                 EditorDocument doc = EditorDocument.Load(text, _catalog);
                 if (doc.Voices.Count == 0)
-                    throw new InvalidDataException("文件里没有可识别的 [voice ...] 声部");
+                    throw new InvalidDataException(I18n.L("文件里没有可识别的 [voice ...] 声部",
+                        "No recognizable [voice ...] sections were found"));
                 _doc = doc;
                 _doc.Title = Path.GetFileNameWithoutExtension(path);
                 _scorePath = path;
@@ -317,11 +332,11 @@ namespace FanStudio
                 _density.SetDocument(_doc);
                 _timeline.Fit();
                 RefreshAll();
-                SetStatus("已打开 " + Path.GetFileName(path));
+                SetStatus(I18n.L("已打开 ", "Opened ") + Path.GetFileName(path));
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, "读取文件失败：\n\n" + ex.Message, "fan_studio",
+                MessageBox.Show(this, I18n.L("读取文件失败：\n\n", "Could not open the file:\n\n") + ex.Message, "fan_studio",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -330,8 +345,9 @@ namespace FanStudio
         {
             if (!ConfirmDiscard()) return;
             var d = new OpenFileDialog();
-            d.Filter = "风扇乐谱 (*.fscore)|*.fscore|所有文件 (*.*)|*.*";
-            d.Title = "打开 fan_music 乐谱";
+            d.Filter = I18n.L("风扇乐谱 (*.fscore)|*.fscore|所有文件 (*.*)|*.*",
+                "fan scores (*.fscore)|*.fscore|All files (*.*)|*.*");
+            d.Title = I18n.L("打开 fan_music 乐谱", "Open a fan_studio score");
             if (d.ShowDialog(this) == DialogResult.OK) LoadScore(d.FileName, false);
         }
 
@@ -341,7 +357,7 @@ namespace FanStudio
             if (saveAs || string.IsNullOrEmpty(path))
             {
                 var d = new SaveFileDialog();
-                d.Filter = "风扇乐谱 (*.fscore)|*.fscore";
+                d.Filter = I18n.L("风扇乐谱 (*.fscore)|*.fscore", "fan scores (*.fscore)|*.fscore");
                 d.FileName = string.IsNullOrEmpty(path) ? "my_fan_song.fscore" : Path.GetFileName(path);
                 if (d.ShowDialog(this) != DialogResult.OK) return;
                 path = d.FileName;
@@ -356,11 +372,11 @@ namespace FanStudio
                 _doc.Title = Path.GetFileNameWithoutExtension(path);
                 _savedSnapshot = text;
                 UpdateTitle();
-                SetStatus("已保存 " + Path.GetFileName(path));
+                SetStatus(I18n.L("已保存 ", "Saved ") + Path.GetFileName(path));
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, "保存失败：\n\n" + ex.Message, "fan_studio",
+                MessageBox.Show(this, I18n.L("保存失败：\n\n", "Could not save the file:\n\n") + ex.Message, "fan_studio",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -376,7 +392,7 @@ namespace FanStudio
             _timeline.SetDocument(_doc);
             _density.SetDocument(_doc);
             RefreshAll();
-            SetStatus("已新建项目");
+            SetStatus(I18n.L("已新建项目", "Created a new project"));
         }
 
         void AddMotorAtPlayhead(Motor m)
@@ -403,7 +419,7 @@ namespace FanStudio
             _timeline.ScrollToVoice(v);
             RefreshAll();
             ShowInspectorSelection();
-            SetStatus("已添加 " + v.Label + " · " + v.ModelText);
+            SetStatus(I18n.L("已添加 ", "Added ") + v.Label + " · " + v.ModelText);
         }
 
         void DeleteVoice(EditorVoice voice)
@@ -416,7 +432,7 @@ namespace FanStudio
             _density.SetDocument(_doc);
             RefreshAll();
             ShowInspectorSelection();
-            SetStatus("已删除声部；Ctrl+Z 可撤销");
+            SetStatus(I18n.L("已删除声部；Ctrl+Z 可撤销", "Voice deleted · press Ctrl+Z to undo"));
         }
 
         void ShowInspectorSelection()
@@ -439,16 +455,16 @@ namespace FanStudio
         {
             if (_doc == null) return;
             string restored = _history.Undo(_doc.Serialize());
-            if (restored == null) { SetStatus("没有可撤销的操作"); return; }
-            ApplyRestored(restored, "已撤销");
+            if (restored == null) { SetStatus(I18n.L("没有可撤销的操作", "Nothing to undo")); return; }
+            ApplyRestored(restored, I18n.L("已撤销", "Undone"));
         }
 
         void Redo()
         {
             if (_doc == null) return;
             string restored = _history.Redo(_doc.Serialize());
-            if (restored == null) { SetStatus("没有可重做的操作"); return; }
-            ApplyRestored(restored, "已重做");
+            if (restored == null) { SetStatus(I18n.L("没有可重做的操作", "Nothing to redo")); return; }
+            ApplyRestored(restored, I18n.L("已重做", "Redone"));
         }
 
         void ApplyRestored(string text, string status)
@@ -470,12 +486,16 @@ namespace FanStudio
             _fillingBpm = true;
             _transport.Bpm = (decimal)_doc.Bpm;
             _fillingBpm = false;
-            _transport.SetProject(string.IsNullOrEmpty(_scorePath) ? "未命名项目" : Path.GetFileName(_scorePath));
+            _transport.SetProject(string.IsNullOrEmpty(_scorePath)
+                ? I18n.L("未命名项目", "Untitled project") : Path.GetFileName(_scorePath));
             int warnings = _doc.CountWarnings();
             int maxConcurrent = _doc.MaxConcurrent();
-            string risk = warnings.ToString(CultureInfo.InvariantCulture) + " 个时值/音域风险 · 最多 " +
-                maxConcurrent.ToString(CultureInfo.InvariantCulture) + " 台同时发声";
-            if (maxConcurrent > 8) risk += " · 低频会糊";
+            string risk = I18n.IsEnglish
+                ? warnings.ToString(CultureInfo.InvariantCulture) + " timing/range warnings · up to " +
+                    maxConcurrent.ToString(CultureInfo.InvariantCulture) + " voices together"
+                : warnings.ToString(CultureInfo.InvariantCulture) + " 个时值/音域风险 · 最多 " +
+                    maxConcurrent.ToString(CultureInfo.InvariantCulture) + " 台同时发声";
+            if (maxConcurrent > 8) risk += I18n.L(" · 低频会糊", " · low end may become muddy");
             _statusRisk.Text = risk;
             _statusRisk.ForeColor = (warnings > 0 || maxConcurrent > 8) ? StudioTheme.Danger : StudioTheme.Muted;
             _timeline.Invalidate();
@@ -486,7 +506,8 @@ namespace FanStudio
         {
             bool dirty = _doc != null && _scorePath == null;
             if (_doc != null && _scorePath != null) dirty = _doc.Serialize() != _savedSnapshot;
-            string name = string.IsNullOrEmpty(_scorePath) ? "未命名项目" : Path.GetFileName(_scorePath);
+            string name = string.IsNullOrEmpty(_scorePath)
+                ? I18n.L("未命名项目", "Untitled project") : Path.GetFileName(_scorePath);
             Text = (dirty ? "● " : "") + name + " — fan_studio";
             _transport.SetProject((dirty ? "● " : "") + name);
         }
@@ -495,8 +516,9 @@ namespace FanStudio
         {
             if (_busy) return;
             var pick = new OpenFileDialog();
-            pick.Filter = "MIDI (*.mid;*.midi)|*.mid;*.midi|所有文件 (*.*)|*.*";
-            pick.Title = "选择要改编成风扇乐器的 MIDI";
+            pick.Filter = I18n.L("MIDI (*.mid;*.midi)|*.mid;*.midi|所有文件 (*.*)|*.*",
+                "MIDI (*.mid;*.midi)|*.mid;*.midi|All files (*.*)|*.*");
+            pick.Title = I18n.L("选择要改编成风扇乐器的 MIDI", "Choose MIDI to arrange for motors");
             if (pick.ShowDialog(this) != DialogResult.OK) return;
 
             var setup = new MidiImportDialog(_doc == null || _doc.Voices.Count == 0 ? 4 : _doc.Voices.Count,
@@ -504,13 +526,14 @@ namespace FanStudio
             if (setup.ShowDialog(this) != DialogResult.OK) return;
 
             SetBusy(true);
-            SetStatus("正在让 Python 改编器分析 MIDI…");
+            SetStatus(I18n.L("正在让 Python 改编器分析 MIDI…", "Analyzing MIDI with the local Python arranger…"));
             ThreadPool.QueueUserWorkItem(delegate
             {
                 try
                 {
                     string root = FindProjectRoot();
-                    if (root == null) throw new DirectoryNotFoundException("找不到包含 fan_music 的项目根目录");
+                    if (root == null) throw new DirectoryNotFoundException(
+                        I18n.L("找不到包含 fan_music 的项目根目录", "Could not find a project root containing fan_music"));
                     string output = Path.Combine(Path.GetTempPath(), "fan_studio_import.fscore");
                     string args = "-m fan_music import-midi " + Quote(pick.FileName) +
                         " --voices " + setup.VoiceCount.ToString(CultureInfo.InvariantCulture) +
@@ -532,9 +555,12 @@ namespace FanStudio
                         stderr = p.StandardError.ReadToEnd();
                         p.WaitForExit();
                         if (p.ExitCode != 0)
-                            throw new InvalidOperationException("MIDI 改编失败：\n" + (stderr.Length > 0 ? stderr : stdout));
+                            throw new InvalidOperationException(
+                                I18n.L("MIDI 改编失败：\n", "MIDI arrangement failed:\n") +
+                                (stderr.Length > 0 ? stderr : stdout));
                     }
-                    if (!File.Exists(output)) throw new FileNotFoundException("改编器没有生成谱子", output);
+                    if (!File.Exists(output)) throw new FileNotFoundException(
+                        I18n.L("改编器没有生成谱子", "The arranger did not produce a score"), output);
                     string text = File.ReadAllText(output, Encoding.UTF8);
                     RunOnUi(delegate
                     {
@@ -550,7 +576,8 @@ namespace FanStudio
                         RefreshAll();
                         ShowInspectorSelection();
                         SetBusy(false);
-                        SetStatus("MIDI 已改编为 " + _doc.Voices.Count + " 个声部；保存后写入 .fscore");
+                        SetStatus(I18n.L("MIDI 已改编为 ", "MIDI arranged into ") + _doc.Voices.Count +
+                            I18n.L(" 个声部；保存后写入 .fscore", " voices · save to write .fscore"));
                     });
                 }
                 catch (Exception ex)
@@ -558,8 +585,9 @@ namespace FanStudio
                     RunOnUi(delegate
                     {
                         SetBusy(false);
-                        SetStatus("MIDI 导入失败");
-                        MessageBox.Show(this, ex.Message, "导入 MIDI", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        SetStatus(I18n.L("MIDI 导入失败", "MIDI import failed"));
+                        MessageBox.Show(this, ex.Message, I18n.L("导入 MIDI", "Import MIDI"),
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     });
                 }
             });
@@ -590,7 +618,8 @@ namespace FanStudio
             if (_busy || _doc == null) return;
             if (_playing) StopPlayback();
             SetBusy(true);
-            SetStatus("正在渲染声学模型并做 FFT 音准自检…");
+            SetStatus(I18n.L("正在渲染声学模型并做 FFT 音准自检…",
+                "Rendering acoustics and running FFT pitch checks…"));
             _bw.RunWorkerAsync(new RenderRequest(_doc.Serialize(), _doc.Bpm, null));
         }
 
@@ -598,10 +627,12 @@ namespace FanStudio
         {
             EditorDocument doc = EditorDocument.Load(req.ScoreText, _catalog);
             Score sc = doc.BuildScore();
-            if (sc.Voices.Count == 0) throw new InvalidOperationException("谱子里没有声部");
+            if (sc.Voices.Count == 0) throw new InvalidOperationException(
+                I18n.L("谱子里没有声部", "The score has no voices"));
             int fs = 48000;
             double[][] mix = Synth.Render(sc, fs, 0.85, 0.14);
-            if (mix[0].Length == 0) throw new InvalidOperationException("渲染结果为空");
+            if (mix[0].Length == 0) throw new InvalidOperationException(
+                I18n.L("渲染结果为空", "The render is empty"));
             double worst;
             int detected, total;
             string report = PitchCheck.Run(sc, mix, fs, out worst, out detected, out total);
@@ -611,7 +642,8 @@ namespace FanStudio
             result.WavPath = wav;
             result.Duration = mix[0].Length / (double)fs;
             result.Status = string.Format(CultureInfo.InvariantCulture,
-                "渲染完成 · {0:F1}s · {1} 声部 · 检出 {2}/{3} · 最差 {4:+0.0;-0.0} 音分",
+                I18n.L("渲染完成 · {0:F1}s · {1} 声部 · 检出 {2}/{3} · 最差 {4:+0.0;-0.0} 音分",
+                    "Rendered · {0:F1}s · {1} voices · detected {2}/{3} · worst {4:+0.0;-0.0} cents"),
                 result.Duration, sc.Voices.Count, detected, total, worst);
             result.Report = report;
             return result;
@@ -622,8 +654,9 @@ namespace FanStudio
             SetBusy(false);
             if (e.Error != null)
             {
-                SetStatus("渲染失败");
-                MessageBox.Show(this, e.Error.Message, "渲染", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                SetStatus(I18n.L("渲染失败", "Render failed"));
+                MessageBox.Show(this, e.Error.Message, I18n.L("渲染", "Render"),
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             RenderResult r = (RenderResult)e.Result;
@@ -638,7 +671,7 @@ namespace FanStudio
         {
             if (_busy || voice == null || _voiceBw.IsBusy) return;
             SetBusy(true);
-            SetStatus("正在试听声部 " + voice.Label + "…");
+            SetStatus(I18n.L("正在试听声部 ", "Auditioning voice ") + voice.Label + "…");
             _voiceBw.RunWorkerAsync(voice);
         }
 
@@ -647,7 +680,8 @@ namespace FanStudio
             string text = _doc.Serialize();
             EditorDocument doc = EditorDocument.Load(text, _catalog);
             EditorVoice voice = doc.FindVoice(original.Label);
-            if (voice == null) throw new InvalidOperationException("声部已不存在");
+            if (voice == null) throw new InvalidOperationException(
+                I18n.L("声部已不存在", "The voice no longer exists"));
             doc.Voices.Clear();
             doc.Voices.Add(voice);
             Score sc = doc.BuildScore();
@@ -658,7 +692,8 @@ namespace FanStudio
             var r = new RenderResult();
             r.WavPath = wav;
             r.Duration = mix[0].Length / (double)fs;
-            r.Status = "试听声部 " + voice.Label + " · " + r.Duration.ToString("0.0", CultureInfo.InvariantCulture) + "s";
+            r.Status = I18n.L("试听声部 ", "Audition: ") + voice.Label + " · " +
+                r.Duration.ToString("0.0", CultureInfo.InvariantCulture) + "s";
             return r;
         }
 
@@ -667,8 +702,9 @@ namespace FanStudio
             SetBusy(false);
             if (e.Error != null)
             {
-                SetStatus("试听失败");
-                MessageBox.Show(this, e.Error.Message, "试听", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                SetStatus(I18n.L("试听失败", "Audition failed"));
+                MessageBox.Show(this, e.Error.Message, I18n.L("试听", "Audition"),
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             RenderResult r = (RenderResult)e.Result;
@@ -695,7 +731,7 @@ namespace FanStudio
             }
             catch (Exception ex)
             {
-                SetStatus("播放失败：" + ex.Message);
+                SetStatus(I18n.L("播放失败：", "Playback failed: ") + ex.Message);
             }
         }
 
@@ -709,7 +745,7 @@ namespace FanStudio
             if (seconds >= _previewDuration + 0.15)
             {
                 StopPlayback();
-                SetStatus("播放结束");
+                SetStatus(I18n.L("播放结束", "Playback finished"));
             }
         }
 
@@ -740,8 +776,9 @@ namespace FanStudio
             double hi = 69.0 + 12.0 * Math.Log(motor.HiHz / 440.0, 2.0);
             if (midi + 0.45 < lo || midi - 0.45 > hi)
             {
-                SetStatus(ScoreParser.MidiToName(midi) + " 超出 " +
-                    (voice == null ? motor.Model : voice.Label) + " 的音域");
+                SetStatus(ScoreParser.MidiToName(midi) + I18n.L(" 超出 ", " is outside ") +
+                    (voice == null ? I18n.MotorModel(motor) : voice.Label) +
+                    I18n.L(" 的音域", "'s range"));
                 return;
             }
             try
@@ -758,12 +795,12 @@ namespace FanStudio
                 double[][] mix = Synth.Render(sc, fs, 0.7, 0.08);
                 string wav = Path.Combine(Path.GetTempPath(), "fan_studio_pitch.wav");
                 WavWriter.Write(wav, mix, fs);
-                SetStatus("试听 " + ScoreParser.MidiToName(midi) + " · " + sv.Label);
+                SetStatus(I18n.L("试听 ", "Audition ") + ScoreParser.MidiToName(midi) + " · " + sv.Label);
                 PlayFile(wav, mix[0].Length / (double)fs);
             }
             catch (Exception ex)
             {
-                SetStatus("试听失败：" + ex.Message);
+                SetStatus(I18n.L("试听失败：", "Audition failed: ") + ex.Message);
             }
         }
 
@@ -786,7 +823,8 @@ namespace FanStudio
             if (_doc == null) return true;
             bool dirty = _scorePath == null || _doc.Serialize() != _savedSnapshot;
             if (!dirty) return true;
-            DialogResult r = MessageBox.Show(this, "当前项目还没有保存。要先保存吗？",
+            DialogResult r = MessageBox.Show(this,
+                I18n.L("当前项目还没有保存。要先保存吗？", "This project has not been saved. Save it first?"),
                 "fan_studio", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
             if (r == DialogResult.Cancel) return false;
             if (r == DialogResult.Yes)
@@ -802,7 +840,8 @@ namespace FanStudio
             if (_busy)
             {
                 e.Cancel = true;
-                SetStatus("后台任务仍在运行，请稍候或先停止播放");
+                SetStatus(I18n.L("后台任务仍在运行，请稍候或先停止播放",
+                    "A background task is still running. Wait or stop playback first."));
                 return;
             }
             if (!ConfirmDiscard()) e.Cancel = true;
@@ -865,7 +904,7 @@ namespace FanStudio
             if (ctrl && key == Keys.D0)
             {
                 _timeline.Fit();
-                SetStatus("已适应内容");
+                SetStatus(I18n.L("已适应内容", "Content fitted to view"));
                 return true;
             }
             if (ctrl && (key == Keys.Oemplus || key == Keys.Add))
@@ -886,7 +925,7 @@ namespace FanStudio
                     EditorVoice voice = _doc.Voices[index];
                     _timeline.SetSelectedVoice(voice);
                     _inspector.ShowSelection(_doc, voice, new List<EditorNote>());
-                    SetStatus("已切换到声部 " + voice.Label);
+                    SetStatus(I18n.L("已切换到声部 ", "Selected voice ") + voice.Label);
                 }
                 return true;
             }

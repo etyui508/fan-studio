@@ -1,5 +1,6 @@
 const status = document.querySelector('#api-status');
 const dot = document.querySelector('#api-dot');
+const isChinese = document.documentElement.lang.toLowerCase().startsWith('zh');
 
 fetch('https://fan-api.bony-doorframe-shortly.top/v1/health', { cache: 'no-store' })
   .then(r => {
@@ -11,5 +12,5 @@ fetch('https://fan-api.bony-doorframe-shortly.top/v1/health', { cache: 'no-store
     dot.classList.add('ok');
   })
   .catch(() => {
-    status.textContent = 'API 暂不可用';
+    status.textContent = isChinese ? 'API 暂不可用' : 'API unavailable';
   });

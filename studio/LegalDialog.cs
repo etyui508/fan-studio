@@ -16,12 +16,15 @@ namespace FanStudio
         readonly StudioButton _tabPrivacy;
         readonly StudioButton _accept;
         readonly StudioButton _ok;
+        readonly StudioButton _language;
         bool _accepted;
 
         public LegalDialog(bool firstRun)
         {
             _firstRun = firstRun;
-            Text = firstRun ? "fan_studio — 首次使用确认" : "fan_studio — 使用说明与法律条款";
+            Text = firstRun
+                ? I18n.L("fan_studio — 首次使用确认", "fan_studio — First-run confirmation")
+                : I18n.L("fan_studio — 使用说明与法律条款", "fan_studio — Guide and legal documents");
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             ClientSize = new Size(760, 650);
             MinimumSize = new Size(620, 520);
@@ -39,19 +42,37 @@ namespace FanStudio
             header.BackColor = StudioTheme.Panel;
             header.Paint += delegate(object s, PaintEventArgs e)
             {
-                TextRenderer.DrawText(e.Graphics, firstRun ? "欢迎使用 fan_studio" : "使用说明与法律条款",
+                TextRenderer.DrawText(e.Graphics,
+                    firstRun ? I18n.L("欢迎使用 fan_studio", "Welcome to fan_studio") :
+                    I18n.L("使用说明与法律条款", "Guide and legal documents"),
                     new Font("Microsoft YaHei UI", 14F, FontStyle.Bold),
                     new Rectangle(24, 12, header.Width - 48, 30), StudioTheme.Text,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
                 TextRenderer.DrawText(e.Graphics,
-                    firstRun ? "开始编辑前，请阅读并同意用户协议与隐私政策。" :
-                    "查看操作说明、用户协议与隐私政策。",
+                    firstRun
+                        ? I18n.L("开始编辑前，请阅读并同意用户协议与隐私政策。",
+                            "Read and accept the Terms of Use and Privacy Policy before editing.")
+                        : I18n.L("查看操作说明、用户协议与隐私政策。",
+                            "Read the user guide, terms of use, and privacy policy."),
                     StudioTheme.UiSmall, new Rectangle(24, 45, header.Width - 48, 24),
                     StudioTheme.Muted, TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
                 using (var pen = new Pen(StudioTheme.Border))
                     e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
             };
             Controls.Add(header);
+
+            _language = new StudioButton();
+            _language.Compact = true;
+            _language.Text = I18n.L("中文", "English");
+            _language.Bounds = new Rectangle(ClientSize.Width - 112, 20, 86, 30);
+            _language.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            _language.Click += delegate
+            {
+                AppSettings.SetLanguage(I18n.IsEnglish ? UiLanguage.Chinese : UiLanguage.English);
+                DialogResult = DialogResult.Retry;
+                Close();
+            };
+            header.Controls.Add(_language);
 
             var tabs = new Panel();
             tabs.Dock = DockStyle.Top;
@@ -60,9 +81,9 @@ namespace FanStudio
             tabs.Padding = new Padding(20, 8, 20, 7);
             Controls.Add(tabs);
 
-            _tabGuide = TabButton("使用说明", 112);
-            _tabTerms = TabButton("用户协议", 98);
-            _tabPrivacy = TabButton("隐私政策", 98);
+            _tabGuide = TabButton(I18n.L("使用说明", "Guide"), 112);
+            _tabTerms = TabButton(I18n.L("用户协议", "Terms"), 98);
+            _tabPrivacy = TabButton(I18n.L("隐私政策", "Privacy"), 112);
             _tabGuide.Left = 20;
             _tabTerms.Left = 138;
             _tabPrivacy.Left = 242;
@@ -103,31 +124,33 @@ namespace FanStudio
             {
                 _accept = new StudioButton();
                 _accept.Compact = true;
-                _accept.Text = "☐  我已阅读并同意《用户协议》和《隐私政策》";
+                _accept.Text = I18n.L("☐  我已阅读并同意《用户协议》和《隐私政策》",
+                    "☐  I have read and accept the Terms of Use and Privacy Policy");
                 _accept.Bounds = new Rectangle(22, 15, 430, 32);
                 _accept.Click += delegate
                 {
                     _accepted = !_accepted;
                     _accept.Text = (_accepted ? "☑  " : "☐  ") +
-                        "我已阅读并同意《用户协议》和《隐私政策》";
+                        I18n.L("我已阅读并同意《用户协议》和《隐私政策》",
+                            "I have read and accept the Terms of Use and Privacy Policy");
                     _accept.Accent = _accepted;
                     _ok.Enabled = _accepted;
                 };
                 footer.Controls.Add(_accept);
 
                 var quit = new StudioButton();
-                quit.Text = "退出";
+                quit.Text = I18n.L("退出", "Exit");
                 quit.Danger = true;
-                quit.Bounds = new Rectangle(520, 54, 96, 32);
+                quit.Bounds = new Rectangle(484, 54, 96, 32);
                 quit.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
                 quit.DialogResult = DialogResult.Cancel;
                 footer.Controls.Add(quit);
 
                 _ok = new StudioButton();
-                _ok.Text = "同意并继续";
+                _ok.Text = I18n.L("同意并继续", "Agree and continue");
                 _ok.Accent = true;
                 _ok.Enabled = false;
-                _ok.Bounds = new Rectangle(624, 54, 114, 32);
+                _ok.Bounds = new Rectangle(592, 54, 148, 32);
                 _ok.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
                 _ok.DialogResult = DialogResult.OK;
                 footer.Controls.Add(_ok);
@@ -135,7 +158,8 @@ namespace FanStudio
                 CancelButton = quit;
 
                 var hint = new Label();
-                hint.Text = "滚轮或 PageDown 阅读全文 · 同意记录仅保存在本机";
+                hint.Text = I18n.L("滚轮或 PageDown 阅读全文 · 同意记录仅保存在本机",
+                    "Scroll or PageDown to read · acceptance is stored locally");
                 hint.ForeColor = StudioTheme.Dim;
                 hint.Font = StudioTheme.UiSmall;
                 hint.Bounds = new Rectangle(468, 18, 270, 24);
@@ -146,7 +170,7 @@ namespace FanStudio
             else
             {
                 _ok = new StudioButton();
-                _ok.Text = "关闭";
+                _ok.Text = I18n.L("关闭", "Close");
                 _ok.Bounds = new Rectangle(638, 17, 100, 32);
                 _ok.Anchor = AnchorStyles.Right | AnchorStyles.Top;
                 _ok.DialogResult = DialogResult.OK;
@@ -154,7 +178,7 @@ namespace FanStudio
                 AcceptButton = _ok;
                 CancelButton = _ok;
                 var hint = new Label();
-                hint.Text = "滚轮或 PageDown 阅读全文";
+                hint.Text = I18n.L("滚轮或 PageDown 阅读全文", "Scroll or PageDown to read");
                 hint.ForeColor = StudioTheme.Dim;
                 hint.Font = StudioTheme.UiSmall;
                 hint.Bounds = new Rectangle(22, 18, 300, 24);
@@ -180,8 +204,11 @@ namespace FanStudio
 
         void ShowDoc(int which)
         {
-            _text.Text = which == 0 ? LegalDocuments.Guide :
-                (which == 1 ? LegalDocuments.Terms : LegalDocuments.Privacy);
+            _text.Text = which == 0
+                ? (I18n.IsEnglish ? LegalDocuments.GuideEn : LegalDocuments.Guide)
+                : (which == 1
+                    ? (I18n.IsEnglish ? LegalDocuments.TermsEn : LegalDocuments.Terms)
+                    : (I18n.IsEnglish ? LegalDocuments.PrivacyEn : LegalDocuments.Privacy));
             _text.SelectionStart = 0;
             _text.SelectionLength = 0;
             SetActive(_tabGuide, which == 0);

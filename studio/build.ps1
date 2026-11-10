@@ -22,6 +22,7 @@ $studioSources = @(
     "FanCore.cs",
     "EditorModel.cs",
     "StudioTheme.cs",
+    "I18n.cs",
     "DarkNumeric.cs",
     "DarkScrollBar.cs",
     "LegalDocuments.cs",
