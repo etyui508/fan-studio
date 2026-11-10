@@ -10,6 +10,11 @@ onward. Versions follow Semantic Versioning.
 - Installer and portable-release polish
 - Continued localization coverage
 
+### Added
+
+- Animated official website with staged hero entrance, visual depth, scroll
+  reveals, animated metrics, scroll progress, and reduced-motion support.
+
 ## [1.1.0] - 2026-11-11
 
 ### Added
