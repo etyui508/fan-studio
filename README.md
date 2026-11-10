@@ -432,3 +432,6 @@ r:2                   # 休止
 
 除非文件内另有说明，本项目源代码和随附文档按 [MIT License](LICENSE) 提供。
 第三方运行时与构建工具的许可说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+维护者：[etyui508](https://github.com/etyui508) ·
+问题反馈：[GitHub Issues](https://github.com/etyui508/fan-studio/issues)

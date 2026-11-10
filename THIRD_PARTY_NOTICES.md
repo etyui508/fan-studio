@@ -1,7 +1,7 @@
 # Third-Party Notices
 
 fan_studio and the `fan_music` source code are licensed under the MIT License
-included in the project root.
+included in the project root. Copyright (c) 2026 etyui508.
 
 This project uses or interoperates with the following third-party software:
 

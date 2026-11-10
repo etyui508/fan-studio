@@ -22,3 +22,6 @@ obj/
 *.suo
 .DS_Store
 Thumbs.db
+
+# Generated distribution packages
+dist/
