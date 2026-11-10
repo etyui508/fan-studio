@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+*.log
+crash.log
+
+# Generated audio and large render outputs
+out/
+*.wav
+*.mp3
+
+# Local build artifacts
+studio/*.exe
+studio/*.pdb
+studio/*.png
+studio/icon-drafts/
+
+# IDE / OS
+.vs/
+bin/
+obj/
+*.user
+*.suo
+.DS_Store
+Thumbs.db

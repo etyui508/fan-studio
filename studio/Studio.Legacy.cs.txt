@@ -1,0 +1,772 @@
+// Studio.legacy —— 第一代表单式界面，保留作迁移参考
+// 编译: csc /target:winexe /out:fan_studio.exe /r:System.Windows.Forms.dll /r:System.Drawing.dll FanCore.cs Studio.cs
+
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
+using System.Globalization;
+using System.IO;
+using System.Media;
+using System.Text;
+using System.Windows.Forms;
+using FanStudio;
+
+static class Program
+{
+    [STAThread]
+    static void Main(string[] args)
+    {
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+
+        // 兜底: 任何界面线程上的未处理异常都记进 crash.log 并弹提示, 而不是直接崩掉
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+        Application.ThreadException += delegate(object s, System.Threading.ThreadExceptionEventArgs e)
+        {
+            LogCrash(e.Exception);
+            MessageBox.Show("程序遇到一个错误, 详情已写入 crash.log:\n\n" + e.Exception.Message,
+                "fan_studio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        };
+        AppDomain.CurrentDomain.UnhandledException += delegate(object s, UnhandledExceptionEventArgs e)
+        {
+            LogCrash(e.ExceptionObject as Exception);
+        };
+
+        // 无界面自检: 写日志, 方便在没有桌面的情况下验证这个编译产物
+        if (args.Length > 0 && args[0] == "--selftest")
+        {
+            RunSelfTest();
+            return;
+        }
+        if (args.Length > 0 && args[0] == "--uitest")
+        {
+            var form = new MainForm(null);
+            form.Shown += delegate { form.RunUiTest(); };
+            Application.Run(form);
+            return;
+        }
+        try
+        {
+            Application.Run(new MainForm(args.Length > 0 ? args[0] : null));
+        }
+        catch (Exception ex)
+        {
+            LogCrash(ex);
+            MessageBox.Show("启动失败:\n\n" + ex, "fan_studio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    static void LogCrash(Exception ex)
+    {
+        try
+        {
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash.log");
+            var sb = new StringBuilder();
+            sb.AppendLine("=== " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " ===");
+            sb.AppendLine(ex == null ? "(无异常对象)" : ex.ToString());
+            sb.AppendLine();
+            File.AppendAllText(path, sb.ToString(), Encoding.UTF8);
+        }
+        catch { }
+    }
+
+    static void RunSelfTest()
+    {
+        string dir = AppDomain.CurrentDomain.BaseDirectory;
+        var log = new StringBuilder();
+        try
+        {
+            var cat = LoadCatalog(dir);
+            log.AppendLine("电机库: " + cat.Count);
+            string score = File.ReadAllText(Path.Combine(dir, "selftest.fscore"), Encoding.UTF8);
+            var sc = ScoreParser.Parse(score, cat, true);
+            Planner.Build(sc);
+            int fs = 48000;
+            var mix = Synth.Render(sc, fs, 0.85, 0.14);
+            string wav = Path.Combine(dir, "gui_selftest.wav");
+            WavWriter.Write(wav, mix, fs);
+            double worst; int det, tot;
+            string rep = PitchCheck.Run(sc, mix, fs, out worst, out det, out tot);
+            log.AppendLine(string.Format(CultureInfo.InvariantCulture,
+                "声部 {0}, 时长 {1:F2}s, 检出 {2}/{3}, 最差 {4:F1} 音分",
+                sc.Voices.Count, mix[0].Length / (double)fs, det, tot, worst));
+            log.Append(rep);
+        }
+        catch (Exception ex) { log.AppendLine("失败: " + ex); }
+        File.WriteAllText(Path.Combine(dir, "gui_selftest.log"), log.ToString(), Encoding.UTF8);
+    }
+
+    public static List<Motor> LoadCatalog(string dir)
+    {
+        string p = Path.Combine(dir, "motors.txt");
+        if (!File.Exists(p)) p = Path.Combine(dir, "..", "motors.txt");
+        var list = MotorCatalog.Load(p);
+        if (list.Count == 0) list.Add(MotorCatalog.Fallback());
+        return list;
+    }
+}
+
+public class MainForm : Form
+{
+    List<Motor> _catalog;
+    SoundPlayer _player = new SoundPlayer();
+    string _scorePath = null;
+    bool _busy = false;
+    bool _uiReady = false;
+    bool _filling = false;
+
+    ListView _list;
+    TextBox _score;
+    Label _range, _status, _hint;
+    NumericUpDown _nBlades, _nMin, _nMax, _nStart, _nGlide, _nHarm, _nTimbre, _nNoiseC, _nNoiseG, _nPan, _nGain;
+    Button _btnRender, _btnAudition, _btnStop;
+    BackgroundWorker _bw;
+    Motor _sel;
+
+    static readonly CultureInfo CI = CultureInfo.InvariantCulture;
+
+    public MainForm(string scorePath)
+    {
+        _catalog = Program.LoadCatalog(AppDomain.CurrentDomain.BaseDirectory);
+        _scorePath = scorePath;
+        BuildUi();
+        FillList();
+        if (scorePath != null && File.Exists(scorePath)) LoadScoreFile(scorePath);
+        else _score.Text = Template();
+        if (_list.Items.Count > 0) { _list.Items[0].Selected = true; _list.Select(); }
+        _uiReady = true;                      // 构造完成后事件才允许改数据
+        UpdateHint();
+    }
+
+    // ───────────────────────── 界面搭建 ─────────────────────────
+    void BuildUi()
+    {
+        Text = "fan_studio —— 电机乐器编辑器";
+        Width = 1280; Height = 820;
+        MinimumSize = new Size(1000, 640);
+        Font = new Font("Microsoft YaHei UI", 9F);
+        StartPosition = FormStartPosition.CenterScreen;
+
+        var status = new StatusStrip();
+        _status = new Label();
+        _status.Text = "就绪";
+        _status.AutoSize = true;
+        status.Items.Add(new ToolStripStatusLabel(" "));
+        status.Items[0].Text = "";
+        this.Controls.Add(status);
+        var ssl = new ToolStripStatusLabel();
+        ssl.Text = "就绪";
+        ssl.Spring = true;
+        ssl.TextAlign = ContentAlignment.MiddleLeft;
+        status.Items.Add(ssl);
+        _status.Tag = ssl;
+
+        var split = new SplitContainer();
+        split.Dock = DockStyle.Fill;
+        split.SplitterDistance = 470;
+        split.FixedPanel = FixedPanel.Panel1;
+        this.Controls.Add(split);
+        split.BringToFront();
+
+        // ── 左: 电机列表 ──
+        var leftTop = new Panel(); leftTop.Dock = DockStyle.Top; leftTop.Height = 34;
+        var lblTitle = new Label();
+        lblTitle.Text = "  电机库(勾选 = 参与合成)";
+        lblTitle.Dock = DockStyle.Left; lblTitle.Width = 220;
+        lblTitle.TextAlign = ContentAlignment.MiddleLeft;
+        lblTitle.Font = new Font(Font, FontStyle.Bold);
+        leftTop.Controls.Add(lblTitle);
+
+        var btnAll = SmallButton("全选", 228, leftTop, delegate { SetAll(true); });
+        var btnNone = SmallButton("全不选", 288, leftTop, delegate { SetAll(false); });
+        var btnFans = SmallButton("只要风机", 352, leftTop, delegate { FansOnly(); });
+        SplitContainer sc = split;
+
+        _list = new ListView();
+        _list.Dock = DockStyle.Fill;
+        _list.View = View.Details;
+        _list.CheckBoxes = true;
+        _list.FullRowSelect = true;
+        _list.MultiSelect = false;
+        _list.HideSelection = false;
+        _list.ShowItemToolTips = true;
+        _list.Columns.Add("型号", 132);
+        _list.Columns.Add("族系", 84);
+        _list.Columns.Add("叶片", 44);
+        _list.Columns.Add("转速", 104);
+        _list.Columns.Add("能唱的音域", 110);
+        _list.SelectedIndexChanged += delegate { PickFromList(); };
+        // 只用事件参数里的那一项, 不遍历整个集合 —— 避免 FillList 期间的重入。
+        // 提示栏不在这里刷新: 在 WM_NOTIFY 反射通知里同步改控件会踩到重入, 交给定时器。
+        _list.ItemChecked += delegate(object s, ItemCheckedEventArgs e)
+        {
+            if (!_uiReady) return;
+            var mm = e.Item.Tag as Motor;
+            if (mm != null) mm.Enabled = e.Item.Checked;
+        };
+        sc.Panel1.Controls.Add(_list);
+        sc.Panel1.Controls.Add(leftTop);
+
+        // ── 右: 参数 + 乐谱 ──
+        var rightSplit = new SplitContainer();
+        rightSplit.Dock = DockStyle.Fill;
+        rightSplit.Orientation = Orientation.Horizontal;
+        rightSplit.SplitterDistance = 300;
+        rightSplit.FixedPanel = FixedPanel.Panel1;
+        sc.Panel2.Controls.Add(rightSplit);
+
+        var gbParam = new GroupBox();
+        gbParam.Text = " 参数(改哪个都能立刻听到区别) ";
+        gbParam.Dock = DockStyle.Fill;
+        gbParam.Padding = new Padding(8);
+        rightSplit.Panel1.Controls.Add(gbParam);
+
+        var tbl = new TableLayoutPanel();
+        tbl.Dock = DockStyle.Top;
+        tbl.ColumnCount = 4;
+        tbl.RowCount = 6;
+        tbl.AutoSize = true;
+        tbl.Padding = new Padding(4);
+        tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92));
+        tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 112));
+        tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92));
+        tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 112));
+        gbParam.Controls.Add(tbl);
+
+        _nBlades = Num(tbl, 0, 0, "叶片/事件", 1, 4096, 0, 1);
+        _nHarm = Num(tbl, 0, 1, "谐波次数", 1, 8, 0, 1);
+        _nMin = Num(tbl, 1, 0, "最低 rpm", 0, 60000, 0, 50);
+        _nMax = Num(tbl, 1, 1, "最高 rpm", 1, 60000, 0, 50);
+        _nStart = Num(tbl, 2, 0, "启动占空比", 0.01M, 1M, 2, 0.01M);
+        _nGlide = Num(tbl, 2, 1, "惯性 τ (ms)", 1, 2000, 0, 5);
+        _nTimbre = Num(tbl, 3, 0, "谐波衰减", 0.2M, 3M, 2, 0.05M);
+        _nNoiseC = Num(tbl, 3, 1, "噪声中心 Hz", 20, 40000, 0, 50);
+        _nNoiseG = Num(tbl, 4, 0, "噪声量", 0M, 3M, 2, 0.05M);
+        _nPan = Num(tbl, 4, 1, "声像", -1M, 1M, 2, 0.05M);
+        _nGain = Num(tbl, 5, 0, "音量", 0M, 2M, 2, 0.05M);
+
+        var btnRow = new FlowLayoutPanel();
+        btnRow.Dock = DockStyle.Bottom; btnRow.Height = 40; btnRow.Padding = new Padding(6, 4, 0, 0);
+        gbParam.Controls.Add(btnRow);
+
+        _btnAudition = new Button();
+        _btnAudition.Text = "试听这台电机";
+        _btnAudition.Width = 130; _btnAudition.Height = 28;
+        _btnAudition.Click += delegate { Audition(); };
+        btnRow.Controls.Add(_btnAudition);
+
+        var btnApply = new Button();
+        btnApply.Text = "写入谱子";
+        btnApply.Width = 96; btnApply.Height = 28;
+        btnApply.Click += delegate { InsertVoice(); };
+        btnRow.Controls.Add(btnApply);
+
+        _range = new Label();
+        _range.AutoSize = true;
+        _range.Padding = new Padding(10, 6, 0, 0);
+        _range.ForeColor = Color.FromArgb(0, 90, 160);
+        btnRow.Controls.Add(_range);
+
+        foreach (var n in new[] { _nBlades, _nMin, _nMax, _nStart, _nGlide, _nHarm, _nTimbre, _nNoiseC, _nNoiseG, _nPan, _nGain })
+            n.ValueChanged += delegate { ApplyParams(); };
+
+        // ── 乐谱区 ──
+        var gbScore = new GroupBox();
+        gbScore.Text = " 乐谱(.fscore) —— 每行一个声部, 音符写成 音名:拍数 ";
+        gbScore.Dock = DockStyle.Fill;
+        gbScore.Padding = new Padding(8);
+        rightSplit.Panel2.Controls.Add(gbScore);
+
+        _score = new TextBox();
+        _score.Dock = DockStyle.Fill;
+        _score.Multiline = true;
+        _score.ScrollBars = ScrollBars.Both;
+        _score.WordWrap = false;
+        _score.Font = new Font("Consolas", 10F);
+        _score.AcceptsReturn = true;
+        gbScore.Controls.Add(_score);
+
+        var bar = new FlowLayoutPanel();
+        bar.Dock = DockStyle.Bottom; bar.Height = 42; bar.Padding = new Padding(4, 6, 0, 0);
+        gbScore.Controls.Add(bar);
+
+        _btnRender = new Button();
+        _btnRender.Text = "渲染并播放";
+        _btnRender.Width = 120; _btnRender.Height = 30;
+        _btnRender.Click += delegate { RenderAndPlay(); };
+        bar.Controls.Add(_btnRender);
+
+        _btnStop = new Button();
+        _btnStop.Text = "停止";
+        _btnStop.Width = 70; _btnStop.Height = 30;
+        _btnStop.Click += delegate { _player.Stop(); SetStatus("已停止"); };
+        bar.Controls.Add(_btnStop);
+
+        bar.Controls.Add(Spacer(8));
+        var b2 = new Button(); b2.Text = "打开 .fscore"; b2.Width = 112; b2.Height = 30;
+        b2.Click += delegate { OpenScore(); }; bar.Controls.Add(b2);
+        var b3 = new Button(); b3.Text = "保存 .fscore"; b3.Width = 112; b3.Height = 30;
+        b3.Click += delegate { SaveScore(); }; bar.Controls.Add(b3);
+        var b4 = new Button(); b4.Text = "插入模板"; b4.Width = 96; b4.Height = 30;
+        b4.Click += delegate { _score.Text = Template(); SetStatus("已插入模板"); }; bar.Controls.Add(b4);
+
+        _hint = new Label();
+        _hint.AutoSize = true;
+        _hint.ForeColor = Color.DimGray;
+        _hint.Padding = new Padding(12, 8, 0, 0);
+        _hint.Text = "提示: 叶片数决定音域; 惯性越大越唱不了快音";
+        bar.Controls.Add(_hint);
+
+        _bw = new BackgroundWorker();
+        _bw.DoWork += delegate(object s, DoWorkEventArgs e) { e.Result = DoRender((string)e.Argument); };
+        _bw.RunWorkerCompleted += delegate(object s, RunWorkerCompletedEventArgs e) { FinishRender(e); };
+
+        // 提示栏由定时器刷新, 不挂在 ListView 的通知链上
+        var hintTimer = new System.Windows.Forms.Timer();
+        hintTimer.Interval = 400;
+        hintTimer.Tick += delegate { UpdateHint(); };
+        hintTimer.Start();
+    }
+
+    static Control Spacer(int w) { var p = new Panel(); p.Width = w; p.Height = 1; return p; }
+
+    Button SmallButton(string text, int x, Control parent, EventHandler onClick)
+    {
+        var b = new Button();
+        b.Text = text; b.Width = text.Length > 3 ? 78 : 56; b.Height = 26;
+        b.Left = x; b.Top = 4;
+        b.Click += onClick;
+        parent.Controls.Add(b);
+        return b;
+    }
+
+    NumericUpDown Num(TableLayoutPanel tbl, int row, int col, string label, decimal min, decimal max, int dec, decimal step)
+    {
+        var lbl = new Label();
+        lbl.Text = label; lbl.TextAlign = ContentAlignment.MiddleRight; lbl.Dock = DockStyle.Fill;
+        var n = new NumericUpDown();
+        n.Minimum = min; n.Maximum = max; n.DecimalPlaces = dec; n.Increment = step;
+        n.Dock = DockStyle.Fill; n.Height = 24;
+        tbl.Controls.Add(lbl, col * 2, row);
+        tbl.Controls.Add(n, col * 2 + 1, row);
+        return n;
+    }
+
+    // ───────────────────────── 数据 ─────────────────────────
+    void FillList()
+    {
+        _list.BeginUpdate();
+        _list.Items.Clear();
+        foreach (var m in _catalog)
+        {
+            if (m.Kind != "revolve") continue;
+            var it = new ListViewItem(m.Model);
+            it.SubItems.Add(m.Family);
+            it.SubItems.Add(m.Blades.ToString(CI));
+            it.SubItems.Add(m.MinRpm.ToString("0", CI) + "-" + m.MaxRpm.ToString("0", CI));
+            it.SubItems.Add(RangeText(m));
+            it.Tag = m;
+            it.Checked = m.Enabled;
+            it.ToolTipText = m.Note;
+            _list.Items.Add(it);
+        }
+        _list.EndUpdate();
+    }
+
+    static string RangeText(Motor m)
+    {
+        if (m.Kind != "revolve") return "—";
+        return HzName(m.LoHz) + "-" + HzName(m.HiHz);
+    }
+
+    static string HzName(double hz)
+    {
+        if (hz <= 0) return "—";
+        double midi = 69 + 12 * Math.Log(hz / 440.0, 2);
+        return ScoreParser.MidiToName((int)Math.Round(midi));
+    }
+
+    void PickFromList()
+    {
+        if (!_uiReady || _list == null || _nBlades == null) return;
+        if (_list.SelectedItems.Count == 0) { _sel = null; return; }
+        var m = _list.SelectedItems[0].Tag as Motor;
+        if (m == null) return;
+        _sel = m;
+        // 填值期间必须挡住 ValueChanged 回写, 否则每个控件赋值都会把同一个电机的参数覆盖成半成品
+        _filling = true;
+        try
+        {
+            _nBlades.Value = Clamp(m.Blades, _nBlades);
+            _nMin.Value = Clamp(m.MinRpm, _nMin);
+            _nMax.Value = Clamp(m.MaxRpm, _nMax);
+            _nStart.Value = Clamp(m.StartDuty, _nStart);
+            _nGlide.Value = Clamp(m.Glide * 1000, _nGlide);
+            _nHarm.Value = Clamp(m.Harmonic < 1 ? 1 : m.Harmonic, _nHarm);
+            _nTimbre.Value = Clamp(m.Timbre, _nTimbre);
+            _nNoiseC.Value = Clamp(m.NoiseCenter, _nNoiseC);
+            _nNoiseG.Value = Clamp(m.NoiseGain, _nNoiseG);
+            _nPan.Value = Clamp(m.Pan, _nPan);
+            _nGain.Value = Clamp(m.Gain, _nGain);
+        }
+        finally { _filling = false; }
+        UpdateRange();
+    }
+
+    static decimal Clamp(double v, NumericUpDown n)
+    {
+        decimal d = (decimal)v;
+        if (d < n.Minimum) d = n.Minimum;
+        if (d > n.Maximum) d = n.Maximum;
+        return d;
+    }
+
+    void ApplyParams()
+    {
+        if (_filling || !_uiReady || _sel == null) return;
+        _sel.Blades = (int)_nBlades.Value;
+        _sel.MinRpm = (double)_nMin.Value;
+        _sel.MaxRpm = (double)_nMax.Value;
+        _sel.StartDuty = (double)_nStart.Value;
+        _sel.Glide = (double)_nGlide.Value / 1000.0;
+        _sel.Harmonic = (double)_nHarm.Value;
+        _sel.Timbre = (double)_nTimbre.Value;
+        _sel.NoiseCenter = (double)_nNoiseC.Value;
+        _sel.NoiseGain = (double)_nNoiseG.Value;
+        _sel.Pan = (double)_nPan.Value;
+        _sel.Gain = (double)_nGain.Value;
+        _sel.LayoutFromFile = true;
+        UpdateRange();
+        foreach (ListViewItem it in _list.SelectedItems) { it.SubItems[2].Text = _sel.Blades.ToString(CI); it.SubItems[4].Text = RangeText(_sel); }
+    }
+
+    void UpdateRange()
+    {
+        if (_sel == null) { _range.Text = ""; return; }
+        string warn = _sel.MaxRpm <= _sel.MinRpm ? "  ⚠ 最高转速必须大于最低" : "";
+        _range.Text = string.Format(CI, "能唱 {0}-{1}  ({2:0}-{3:0} Hz){4}",
+            HzName(_sel.LoHz), HzName(_sel.HiHz), _sel.LoHz, _sel.HiHz, warn);
+    }
+
+    void SyncChecked()
+    {
+        if (!_uiReady || _list == null) return;
+        foreach (ListViewItem it in _list.Items)
+        {
+            var m = it.Tag as Motor;          // FillList 期间可能拿到还没挂 Tag 的条目
+            if (m == null) continue;
+            m.Enabled = it.Checked;
+        }
+        UpdateHint();
+    }
+
+    void SetAll(bool on) { foreach (ListViewItem it in _list.Items) it.Checked = on; }
+    void FansOnly()
+    {
+        foreach (ListViewItem it in _list.Items)
+        {
+            var m = (Motor)it.Tag;
+            it.Checked = m.Family == "轴流风机" || m.Family == "离心风机";
+        }
+    }
+
+    void UpdateHint()
+    {
+        try
+        {
+            if (_hint == null || _list == null) return;
+            int n = 0;
+            foreach (ListViewItem it in _list.Items) if (it.Checked) n++;
+            _hint.Text = string.Format("已选 {0} 台" + (n > 8 ? "  (超过 8 台低频会糊, 物理限制)" : ""), n);
+        }
+        catch { }   // 提示文字是装饰, 绝不该弄崩程序
+    }
+
+    // ───────────────────────── 乐谱 ─────────────────────────
+    string Template()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("# fan_studio 模板 —— 改音符就行, 参数在左边面板调");
+        sb.AppendLine("bpm = 120");
+        sb.AppendLine();
+        int n = 0;
+        foreach (ListViewItem it in _list.Items)
+        {
+            if (!it.Checked) continue;
+            var m = (Motor)it.Tag;
+            if (n >= 6) break;
+            sb.AppendLine("[voice " + m.Key + "]");
+            int lo = (int)Math.Round(69 + 12 * Math.Log(m.LoHz / 440.0, 2));
+            int hi = (int)Math.Round(69 + 12 * Math.Log(m.HiHz / 440.0, 2));
+            int mid = (lo + hi) / 2;
+            int[] seq = { 0, 4, 7, 12 };
+            var line = new StringBuilder();
+            for (int i = 0; i < seq.Length; i++) line.Append(ScoreParser.MidiToName(mid + seq[i]) + ":1 ");
+            sb.AppendLine(line.ToString().TrimEnd());
+            sb.AppendLine(line.Replace(":1", ":0.5").ToString().TrimEnd());
+            sb.AppendLine();
+            n++;
+        }
+        if (n == 0) sb.AppendLine("# 左边先勾几台电机, 再点“插入模板”");
+        return sb.ToString();
+    }
+
+    void LoadScoreFile(string path)
+    {
+        try
+        {
+            _score.Text = File.ReadAllText(path, Encoding.UTF8);
+            _scorePath = path;
+            SetStatus("已载入 " + Path.GetFileName(path));
+        }
+        catch (Exception ex) { MessageBox.Show("读取失败: " + ex.Message); }
+    }
+
+    void OpenScore()
+    {
+        var d = new OpenFileDialog();
+        d.Filter = "风扇谱 (*.fscore)|*.fscore|所有文件 (*.*)|*.*";
+        if (d.ShowDialog() == DialogResult.OK) LoadScoreFile(d.FileName);
+    }
+
+    void SaveScore()
+    {
+        var d = new SaveFileDialog();
+        d.Filter = "风扇谱 (*.fscore)|*.fscore";
+        d.FileName = _scorePath != null ? Path.GetFileName(_scorePath) : "my_fan_song.fscore";
+        if (d.ShowDialog() != DialogResult.OK) return;
+        try
+        {
+            File.WriteAllText(d.FileName, _score.Text, new UTF8Encoding(true));
+            _scorePath = d.FileName;
+            SetStatus("已保存 " + Path.GetFileName(d.FileName));
+        }
+        catch (Exception ex) { MessageBox.Show("保存失败: " + ex.Message); }
+    }
+
+    /// <summary>把当前选中电机的参数写进谱子对应声部(不覆盖音符)。</summary>
+    void InsertVoice()
+    {
+        if (_sel == null) return;
+        string header = "[voice " + _sel.Key + "]";
+        var lines = new List<string>(_score.Text.Replace("\r\n", "\n").Split('\n'));
+        int at = lines.FindIndex(delegate(string s) { return s.Trim() == header; });
+        var block = new List<string>();
+        block.Add(header);
+        block.Add("blades = " + _sel.Blades.ToString(CI));
+        block.Add("harmonic = " + ((int)_sel.Harmonic).ToString(CI));
+        block.Add("glide = " + _sel.Glide.ToString("0.###", CI));
+        block.Add("min_rpm = " + _sel.MinRpm.ToString("0", CI));
+        block.Add("max_rpm = " + _sel.MaxRpm.ToString("0", CI));
+        block.Add("start_duty = " + _sel.StartDuty.ToString("0.###", CI));
+        block.Add("pan = " + _sel.Pan.ToString("0.##", CI));
+        block.Add("gain = " + _sel.Gain.ToString("0.##", CI));
+        block.Add("noise_center = " + _sel.NoiseCenter.ToString("0", CI));
+        block.Add("timbre = " + _sel.Timbre.ToString("0.###", CI));
+        block.Add("noise_gain = " + _sel.NoiseGain.ToString("0.###", CI));
+
+        if (at >= 0)
+        {
+            int end = at + 1;
+            while (end < lines.Count && !lines[end].TrimStart().StartsWith("[") && !lines[end].Contains(":"))
+            {
+                string t = lines[end].Trim();
+                bool isParam = t.Length > 0 && t.IndexOf('=') > 0;
+                if (!isParam) break;
+                end++;
+            }
+            lines.RemoveRange(at, end - at);
+        }
+        else { at = lines.Count; }
+        lines.InsertRange(at, block);
+        _score.Text = string.Join("\r\n", lines.ToArray());
+        SetStatus("已把 " + _sel.Key + " 的参数写进谱子");
+    }
+
+    // ───────────────────────── 渲染 / 试听 ─────────────────────────
+    void Audition()
+    {
+        if (_sel == null) { SetStatus("先选一台电机"); return; }
+        int lo = (int)Math.Round(69 + 12 * Math.Log(_sel.LoHz / 440.0, 2));
+        int hi = (int)Math.Round(69 + 12 * Math.Log(_sel.HiHz / 440.0, 2));
+        int mid = (lo + hi) / 2;
+        var sc = new Score();
+        sc.Bpm = 96;
+        var v = new Voice();
+        v.Motor = _sel;
+        v.Label = _sel.Key;
+        int[] seq = { 0, 4, 7, 12, 7, 4, 0, 4 };
+        for (int i = 0; i < seq.Length; i++)
+        {
+            var e = new NoteEv();
+            int m = mid + seq[i];
+            if (m > hi) m = hi;
+            if (m < lo) m = lo;
+            e.Midi = m; e.Beats = 1;
+            v.Raw.Add(e);
+        }
+        sc.Voices.Add(v);
+        PlayScore(sc, _sel.Model);
+    }
+
+    void RenderAndPlay()
+    {
+        if (_busy) return;
+        _busy = true;
+        _btnRender.Enabled = false;
+        SetStatus("渲染中…");
+        _bw.RunWorkerAsync(_score.Text);
+    }
+
+    string DoRender(string text)
+    {
+        var sc = ScoreParser.Parse(text, _catalog, true);
+        if (sc.Voices.Count == 0)
+            return "ERR|谱子里没有任何可识别的 [voice ...] 声部。\n\n可用声部名(点“插入模板”自动生成): " + KeyList();
+        Planner.Build(sc);
+        int fs = 48000;
+        var mix = Synth.Render(sc, fs, 0.85, 0.14);
+        double worst; int det, tot;
+        string rep = PitchCheck.Run(sc, mix, fs, out worst, out det, out tot);
+        string wav = Path.Combine(Path.GetTempPath(), "fan_studio_preview.wav");
+        WavWriter.Write(wav, mix, fs);
+        var sb = new StringBuilder();
+        sb.Append("OK|").Append(wav).Append('|');
+        sb.AppendFormat(CI, "{0:F1}s, {1} 声部, 检出 {2}/{3}, 最差 {4:+0.0;-0.0} 音分",
+            mix[0].Length / (double)fs, sc.Voices.Count, det, tot, worst);
+        sb.Append('|').Append(rep);
+        if (sc.ParseWarnings.Count > 0) sb.Append("\n注意: ").Append(sc.ParseWarnings[0]);
+        else if (sc.Warnings.Count > 0) sb.Append("\n注意: ").Append(sc.Warnings[0]);
+        return sb.ToString();
+    }
+
+    string KeyList()
+    {
+        var sb = new StringBuilder();
+        int n = 0;
+        foreach (var m in _catalog) { if (m.Kind != "revolve") continue; if (n++ > 12) { sb.Append("…"); break; } sb.Append(m.Key).Append(' '); }
+        return sb.ToString();
+    }
+
+    void FinishRender(RunWorkerCompletedEventArgs e)
+    {
+        _busy = false;
+        _btnRender.Enabled = true;
+        if (e.Error != null) { SetStatus("渲染失败: " + e.Error.Message); MessageBox.Show(e.Error.ToString()); return; }
+        string res = (string)e.Result;
+        if (res.StartsWith("ERR|")) { SetStatus("渲染失败"); MessageBox.Show(res.Substring(4)); return; }
+        string[] parts = res.Split('|');
+        SetStatus(parts[2]);
+        Play(parts[1]);
+        if (parts.Length > 3 && parts[3].Trim().Length > 0)
+            Console.WriteLine(parts[3]);
+    }
+
+    void PlayScore(Score sc, string title)
+    {
+        try
+        {
+            Planner.Build(sc);
+            var mix = Synth.Render(sc, 48000, 0.85, 0.14);
+            string wav = Path.Combine(Path.GetTempPath(), "fan_studio_audition.wav");
+            WavWriter.Write(wav, mix, 48000);
+            SetStatus("试听: " + title);
+            Play(wav);
+        }
+        catch (Exception ex) { MessageBox.Show(ex.Message); }
+    }
+
+    void Play(string wav)
+    {
+        try
+        {
+            _player.Stop();
+            _player.SoundLocation = wav;
+            _player.Load();
+            _player.Play();
+        }
+        catch (Exception ex) { SetStatus("播放失败: " + ex.Message); }
+    }
+
+    void SetStatus(string text)
+    {
+        var ssl = _status.Tag as ToolStripStatusLabel;
+        if (ssl != null) ssl.Text = text; else _status.Text = text;
+    }
+
+    /// <summary>无头 UI 冒烟测试: 自动走一遍会崩的交互路径, 结果写 ui_test.log。</summary>
+    public void RunUiTest()
+    {
+        var sb = new StringBuilder();
+        string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ui_test.log");
+        int step = 0;
+        var t = new System.Windows.Forms.Timer();
+        t.Interval = 300;
+        t.Tick += delegate
+        {
+            step++;
+            try
+            {
+                if (step == 1)
+                {
+                    sb.AppendLine("1 列表条目数 = " + _list.Items.Count);
+                    _list.Items[0].Selected = true;
+                    sb.AppendLine("  选中第0项 -> _sel = " + (_sel == null ? "null" : _sel.Key));
+                }
+                else if (step == 2)
+                {
+                    _list.Items[0].Checked = !_list.Items[0].Checked;
+                    sb.AppendLine("2 翻转勾选 -> Enabled = " + ((Motor)_list.Items[0].Tag).Enabled);
+                }
+                else if (step == 3)
+                {
+                    _list.Items[4].Selected = true;
+                    sb.AppendLine("3 切到第4项 -> _sel = " + (_sel == null ? "null" : _sel.Key)
+                        + "  音域 = " + _range.Text);
+                }
+                else if (step == 4)
+                {
+                    _nGlide.Value = 300;
+                    _nTimbre.Value = 1.6M;
+                    sb.AppendLine("4 改参数 -> τ = " + _sel.Glide.ToString("0.###", CI)
+                        + "  timbre = " + _sel.Timbre.ToString("0.###", CI));
+                    InsertVoice();
+                    sb.AppendLine("  写入谱子成功, 行数 = " + _score.Lines.Length);
+                }
+                else if (step == 5)
+                {
+                    _score.Text = Template();
+                    sb.AppendLine("5 生成模板 -> 行数 = " + _score.Lines.Length);
+                }
+                else if (step == 6)
+                {
+                    Audition();
+                    sb.AppendLine("6 试听已调用");
+                }
+                else if (step == 7)
+                {
+                    RenderAndPlay();
+                    sb.AppendLine("7 已发起渲染");
+                }
+                else if (step == 13)
+                {
+                    sb.AppendLine("8 渲染结束 -> 状态栏: " + ((ToolStripStatusLabel)_status.Tag).Text);
+                    sb.AppendLine("RESULT: OK 全部交互路径无异常");
+                    t.Stop();
+                    File.WriteAllText(logPath, sb.ToString(), Encoding.UTF8);
+                    Close();
+                }
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine("RESULT: 第 " + step + " 步抛异常");
+                sb.AppendLine(ex.ToString());
+                t.Stop();
+                File.WriteAllText(logPath, sb.ToString(), Encoding.UTF8);
+                Close();
+            }
+        };
+        t.Start();
+    }
+}
